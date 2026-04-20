@@ -27,20 +27,36 @@ function Section({ title, children }: SectionProps) {
   )
 }
 
-const FLOOR_MIN = 0, FLOOR_MAX = 2, CEIL_MIN = 0.1, CEIL_MAX = 4, HEIGHT_STEP = 0.05
-const DEFAULT_FLOOR = 0, DEFAULT_CEIL = 1
+const OFFSET_NEUTRAL = 128
+const OFFSET_STEP_MIN = -10, OFFSET_STEP_MAX = 10
 
-interface SliderRowProps { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void }
-function SliderRow({ label, value, min, max, step, onChange }: SliderRowProps) {
+interface SliderRowProps { label: string; steps: number; isPit?: boolean; onChange: (steps: number) => void; onPitToggle?: () => void }
+function SliderRow({ label, steps, isPit, onChange, onPitToggle }: SliderRowProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <span style={{ color: '#7080b0', minWidth: 120 }}>{label}</span>
       <input
-        type="range" min={min} max={max} step={step} value={value}
+        type="range" min={OFFSET_STEP_MIN} max={OFFSET_STEP_MAX} step={1}
+        value={isPit ? OFFSET_STEP_MIN : steps}
+        disabled={isPit}
         onChange={e => onChange(Number(e.target.value))}
         style={{ flex: 1, accentColor: '#5870d0' }}
       />
-      <span style={{ color: '#e0e8ff', minWidth: 36, textAlign: 'right' }}>{value.toFixed(2)}</span>
+      {isPit
+        ? <span style={{ color: '#e06060', minWidth: 46, textAlign: 'right', fontSize: 11 }}>pit</span>
+        : <span style={{ color: '#e0e8ff', minWidth: 46, textAlign: 'right' }}>{steps > 0 ? `+${steps}` : steps}</span>
+      }
+      {onPitToggle && (
+        <button
+          onClick={onPitToggle}
+          title={isPit ? 'Remove pit' : 'Set as pit'}
+          style={{
+            background: isPit ? '#502020' : 'none', border: `1px solid ${isPit ? '#804040' : '#304060'}`,
+            borderRadius: 3, color: isPit ? '#e06060' : '#8090c0', cursor: 'pointer',
+            fontSize: 11, padding: '1px 5px', lineHeight: 1.4, flexShrink: 0,
+          }}
+        >pit</button>
+      )}
     </div>
   )
 }
@@ -50,7 +66,7 @@ interface Props {
 }
 
 export default function CellDetailsModal({ onClose }: Props) {
-  const { selectedCell, game, atlasConfig, cellPaints, cellHeights, setCellHeights } = useData()
+  const { selectedCell, game, atlasConfig, cellPaints, cellHeights, setCellHeights, renderer } = useData()
   const [paintOpen, setPaintOpen] = useState(false)
 
   if (!selectedCell) return null
@@ -93,12 +109,36 @@ export default function CellDetailsModal({ onClose }: Props) {
 
   const paintTarget = cellPaints[`${cx},${cz}`] ?? {}
   const key = `${cx},${cz}`
-  const heightEntry = cellHeights[key]
-  const floorHeight = heightEntry?.floor ?? DEFAULT_FLOOR
-  const ceilHeight = heightEntry?.ceil ?? DEFAULT_CEIL
 
-  function setHeight(face: 'floor' | 'ceil', v: number) {
-    setCellHeights({ ...cellHeights, [key]: { floor: floorHeight, ceil: ceilHeight, [face]: v } })
+  const texFloor = outputs?.textures.floorHeightOffset
+  const texCeil = outputs?.textures.ceilingHeightOffset
+  const fallback = cellHeights[key]
+
+  const floorR8: number = texFloor?.image.data
+    ? ((texFloor.image.data as Uint8Array)[cz * width + cx] ?? OFFSET_NEUTRAL)
+    : (fallback?.floor ?? OFFSET_NEUTRAL)
+  const ceilR8: number = texCeil?.image.data
+    ? ((texCeil.image.data as Uint8Array)[cz * width + cx] ?? OFFSET_NEUTRAL)
+    : (fallback?.ceil ?? OFFSET_NEUTRAL)
+
+  const floorIsPit = floorR8 === 0
+  const floorSteps = floorIsPit ? 0 : floorR8 - OFFSET_NEUTRAL
+  const ceilSteps = OFFSET_NEUTRAL - ceilR8
+
+  function writeFloor(r8: number) {
+    if (texFloor?.image.data) {
+      ;(texFloor.image.data as Uint8Array)[cz * width + cx] = r8
+    }
+    setCellHeights({ ...cellHeights, [key]: { floor: r8, ceil: ceilR8 } })
+    renderer?.rebuild()
+  }
+
+  function writeCeil(r8: number) {
+    if (texCeil?.image.data) {
+      ;(texCeil.image.data as Uint8Array)[cz * width + cx] = r8
+    }
+    setCellHeights({ ...cellHeights, [key]: { floor: floorR8, ceil: r8 } })
+    renderer?.rebuild()
   }
 
   return (
@@ -154,10 +194,23 @@ export default function CellDetailsModal({ onClose }: Props) {
           {ceilTileId != null && <Row label="Atlas tile ID" value={ceilTileId} />}
         </Section>}
 
-        <Section title="Heights">
-          <SliderRow label="Floor height" value={floorHeight} min={FLOOR_MIN} max={FLOOR_MAX} step={HEIGHT_STEP} onChange={v => setHeight('floor', v)} />
-          <SliderRow label="Ceiling height" value={ceilHeight} min={CEIL_MIN} max={CEIL_MAX} step={HEIGHT_STEP} onChange={v => setHeight('ceil', v)} />
-        </Section>
+        {atlasConfig && (texFloor || texCeil) && <Section title="Height Offsets">
+          <SliderRow
+            label="Floor offset"
+            steps={floorSteps}
+            isPit={floorIsPit}
+            onChange={s => writeFloor(Math.max(1, OFFSET_NEUTRAL + s))}
+            onPitToggle={() => writeFloor(floorIsPit ? OFFSET_NEUTRAL : 0)}
+          />
+          <SliderRow
+            label="Ceiling offset"
+            steps={ceilSteps}
+            onChange={s => writeCeil(OFFSET_NEUTRAL - s)}
+          />
+          {!texFloor && !texCeil && (
+            <span style={{ color: '#506080', fontSize: 11 }}>stored locally — generate dungeon to apply</span>
+          )}
+        </Section>}
 
         {outputs && <Section title="Surface Layers">
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>

@@ -4,6 +4,30 @@ import type { PackedAtlas, CellInfo, TextureAtlasJson, DungeonRenderer, SurfaceP
 
 export type { SurfacePaintTarget }
 
+export interface RendererSettings {
+  fov: number
+  tileSize: number
+  ceilingHeight: number
+  fogNear: number
+  fogFar: number
+  fogColor: string
+  lerpFactor: number
+  offsetFactor: number
+  eyeHeightFactor: number
+}
+
+export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
+  fov: 75,
+  tileSize: 3,
+  ceilingHeight: 3,
+  fogNear: 5,
+  fogFar: 24,
+  fogColor: '#000000',
+  lerpFactor: 0.18,
+  offsetFactor: 0.5,
+  eyeHeightFactor: 0.66,
+}
+
 type GameInstance = ReturnType<typeof createGame>
 
 export type { CellInfo }
@@ -42,9 +66,17 @@ interface DataContextValue {
   /** Per-face surface paint targets, keyed by "cx,cz". */
   cellPaints: Record<string, SurfacePaintTarget>
   setCellPaints: (paints: Record<string, SurfacePaintTarget>) => void
-  /** Per-cell height overrides, keyed by "cx,cz". Values are world-unit heights. */
+  /**
+   * Per-cell height offset overrides, keyed by "cx,cz".
+   * Stores R8 byte values matching DungeonOutputs texture encoding:
+   * floor — 128 = neutral, 129+ = raised, 127– = lowered, 0 = pit
+   * ceil  — 128 = neutral, 127 = raised, 129+ = lowered (inverted)
+   * Used as a fallback store when textures are absent; textures are the authoritative source.
+   */
   cellHeights: Record<string, { floor: number; ceil: number }>
   setCellHeights: (heights: Record<string, { floor: number; ceil: number }>) => void
+  rendererSettings: RendererSettings
+  setRendererSettings: (settings: RendererSettings) => void
 }
 
 const DataContext = createContext<DataContextValue>({
@@ -64,6 +96,8 @@ const DataContext = createContext<DataContextValue>({
   setCellPaints: () => {},
   cellHeights: {},
   setCellHeights: () => {},
+  rendererSettings: DEFAULT_RENDERER_SETTINGS,
+  setRendererSettings: () => {},
 })
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -75,6 +109,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [hoveredCell, setHoveredCell] = useState<CellInfo | null>(null)
   const [cellPaints, setCellPaints] = useState<Record<string, SurfacePaintTarget>>({})
   const [cellHeights, setCellHeights] = useState<Record<string, { floor: number; ceil: number }>>({})
+  const [rendererSettings, setRendererSettings] = useState<RendererSettings>(DEFAULT_RENDERER_SETTINGS)
 
   return (
     <DataContext.Provider value={{
@@ -86,6 +121,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       hoveredCell, setHoveredCell,
       cellPaints, setCellPaints,
       cellHeights, setCellHeights,
+      rendererSettings, setRendererSettings,
     }}>
       {children}
     </DataContext.Provider>

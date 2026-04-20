@@ -5,7 +5,7 @@ import { useData } from '../DataContext'
 
 export default function DungeonView() {
   const viewportRef = useRef<HTMLDivElement>(null)
-  const { setGame, game, atlasConfig, setSelectedCell, setHoveredCell, setRenderer } = useData()
+  const { setGame, game, atlasConfig, setSelectedCell, setHoveredCell, setRenderer, rendererSettings } = useData()
 
   // Effect 1: create game, generate dungeon, attach keybindings — runs once
   useEffect(() => {
@@ -62,7 +62,7 @@ export default function DungeonView() {
     })
   }, [])
 
-  // Effect 2: create renderer when game is ready; recreate when atlas changes
+  // Effect 2: create renderer when game is ready; recreate when atlas or settings change
   useEffect(() => {
     const el = viewportRef.current
     if (!el || !game) return
@@ -88,6 +88,7 @@ export default function DungeonView() {
 
     renderer = createDungeonRenderer(el, game, {
       ...atlasOptions,
+      ...rendererSettings,
 
       onCellHover(info) {
         if (hoverHandle) { hoverHandle.remove(); hoverHandle = null }
@@ -116,7 +117,7 @@ export default function DungeonView() {
       setRenderer(null)
       renderer.destroy()
     }
-  }, [game, atlasConfig])
+  }, [game, atlasConfig, rendererSettings])
 
   return (
     <div

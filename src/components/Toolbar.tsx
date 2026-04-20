@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import AtlasImportModal from './AtlasImportModal'
+import DungeonSettingsModal from './DungeonSettingsModal'
 
 export default function Toolbar() {
   const [showImport, setShowImport] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   return (
     <>
@@ -46,9 +48,24 @@ export default function Toolbar() {
         >
           Import Atlas
         </button>
+        <button
+          onClick={() => setShowSettings(true)}
+          style={{
+            background: '#1a2040',
+            border: '1px solid #4060c0',
+            borderRadius: 3,
+            color: '#c8d0f8',
+            padding: '3px 10px',
+            cursor: 'pointer',
+            fontSize: 12,
+          }}
+        >
+          Settings
+        </button>
       </div>
 
       {showImport && <AtlasImportModal onClose={() => setShowImport(false)} />}
+      {showSettings && <DungeonSettingsModal onClose={() => setShowSettings(false)} />}
     </>
   )
 }
