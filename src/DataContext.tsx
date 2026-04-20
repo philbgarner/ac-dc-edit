@@ -1,19 +1,40 @@
-import { createContext, useContext, useState, ReactNode } from 'react'
-import { createGame } from 'atomic-core'
-import type { PackedAtlas, CellInfo, TextureAtlasJson, DungeonRenderer, SurfacePaintTarget } from 'atomic-core'
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  ReactNode,
+} from "react";
+import { createGame, loadMultiAtlas, packedAtlasResolver } from "atomic-core";
+import type {
+  PackedAtlas,
+  CellInfo,
+  TextureAtlasJson,
+  DungeonRenderer,
+  SurfacePaintTarget,
+} from "atomic-core";
+import {
+  loadSettings,
+  saveSettings,
+  loadAtlasEntries,
+  saveAtlasEntries,
+  loadTileAssignments,
+  saveTileAssignments,
+} from "./persistence";
 
-export type { SurfacePaintTarget }
+export type { SurfacePaintTarget };
 
 export interface RendererSettings {
-  fov: number
-  tileSize: number
-  ceilingHeight: number
-  fogNear: number
-  fogFar: number
-  fogColor: string
-  lerpFactor: number
-  offsetFactor: number
-  eyeHeightFactor: number
+  fov: number;
+  tileSize: number;
+  ceilingHeight: number;
+  fogNear: number;
+  fogFar: number;
+  fogColor: string;
+  lerpFactor: number;
+  offsetFactor: number;
+  eyeHeightFactor: number;
 }
 
 export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
@@ -22,50 +43,51 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   ceilingHeight: 3,
   fogNear: 5,
   fogFar: 24,
-  fogColor: '#000000',
+  fogColor: "#000000",
   lerpFactor: 0.18,
-  offsetFactor: 0.5,
+  offsetFactor: 1 / 12,
   eyeHeightFactor: 0.66,
-}
+};
 
-type GameInstance = ReturnType<typeof createGame>
+type GameInstance = ReturnType<typeof createGame>;
 
-export type { CellInfo }
+export type { CellInfo };
 
 export interface AtlasEntry {
-  id: string
-  pngName: string
-  jsonName: string
-  objectUrl: string
-  json: TextureAtlasJson
-  spriteNames: string[]
+  id: string;
+  pngName: string;
+  jsonName: string;
+  objectUrl: string;
+  pngBlob: Blob;
+  json: TextureAtlasJson;
+  spriteNames: string[];
 }
 
 export interface AtlasConfig {
-  packed: PackedAtlas
-  resolver: (name: string) => number
-  spriteNames: string[]  // union across all entries, later entries win on duplicates
-  floorTile: string
-  wallTile: string
-  ceilTile: string
+  packed: PackedAtlas;
+  resolver: (name: string) => number;
+  spriteNames: string[]; // union across all entries, later entries win on duplicates
+  floorTile: string;
+  wallTile: string;
+  ceilTile: string;
 }
 
 interface DataContextValue {
-  game: GameInstance | null
-  setGame: (game: GameInstance) => void
-  renderer: DungeonRenderer | null
-  setRenderer: (r: DungeonRenderer | null) => void
-  atlasEntries: AtlasEntry[]
-  setAtlasEntries: (entries: AtlasEntry[]) => void
-  atlasConfig: AtlasConfig | null
-  setAtlasConfig: (config: AtlasConfig | null) => void
-  selectedCell: CellInfo | null
-  setSelectedCell: (cell: CellInfo | null) => void
-  hoveredCell: CellInfo | null
-  setHoveredCell: (cell: CellInfo | null) => void
+  game: GameInstance | null;
+  setGame: (game: GameInstance) => void;
+  renderer: DungeonRenderer | null;
+  setRenderer: (r: DungeonRenderer | null) => void;
+  atlasEntries: AtlasEntry[];
+  setAtlasEntries: (entries: AtlasEntry[]) => void;
+  atlasConfig: AtlasConfig | null;
+  setAtlasConfig: (config: AtlasConfig | null) => void;
+  selectedCell: CellInfo | null;
+  setSelectedCell: (cell: CellInfo | null) => void;
+  hoveredCell: CellInfo | null;
+  setHoveredCell: (cell: CellInfo | null) => void;
   /** Per-face surface paint targets, keyed by "cx,cz". */
-  cellPaints: Record<string, SurfacePaintTarget>
-  setCellPaints: (paints: Record<string, SurfacePaintTarget>) => void
+  cellPaints: Record<string, SurfacePaintTarget>;
+  setCellPaints: (paints: Record<string, SurfacePaintTarget>) => void;
   /**
    * Per-cell height offset overrides, keyed by "cx,cz".
    * Stores R8 byte values matching DungeonOutputs texture encoding:
@@ -73,10 +95,12 @@ interface DataContextValue {
    * ceil  — 128 = neutral, 127 = raised, 129+ = lowered (inverted)
    * Used as a fallback store when textures are absent; textures are the authoritative source.
    */
-  cellHeights: Record<string, { floor: number; ceil: number }>
-  setCellHeights: (heights: Record<string, { floor: number; ceil: number }>) => void
-  rendererSettings: RendererSettings
-  setRendererSettings: (settings: RendererSettings) => void
+  cellHeights: Record<string, { floor: number; ceil: number }>;
+  setCellHeights: (
+    heights: Record<string, { floor: number; ceil: number }>,
+  ) => void;
+  rendererSettings: RendererSettings;
+  setRendererSettings: (settings: RendererSettings) => void;
 }
 
 const DataContext = createContext<DataContextValue>({
@@ -98,36 +122,124 @@ const DataContext = createContext<DataContextValue>({
   setCellHeights: () => {},
   rendererSettings: DEFAULT_RENDERER_SETTINGS,
   setRendererSettings: () => {},
-})
+});
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [game, setGame] = useState<GameInstance | null>(null)
-  const [renderer, setRenderer] = useState<DungeonRenderer | null>(null)
-  const [atlasEntries, setAtlasEntries] = useState<AtlasEntry[]>([])
-  const [atlasConfig, setAtlasConfig] = useState<AtlasConfig | null>(null)
-  const [selectedCell, setSelectedCell] = useState<CellInfo | null>(null)
-  const [hoveredCell, setHoveredCell] = useState<CellInfo | null>(null)
-  const [cellPaints, setCellPaints] = useState<Record<string, SurfacePaintTarget>>({})
-  const [cellHeights, setCellHeights] = useState<Record<string, { floor: number; ceil: number }>>({})
-  const [rendererSettings, setRendererSettings] = useState<RendererSettings>(DEFAULT_RENDERER_SETTINGS)
+  const [game, setGame] = useState<GameInstance | null>(null);
+  const [renderer, setRenderer] = useState<DungeonRenderer | null>(null);
+  const [atlasEntries, setAtlasEntries] = useState<AtlasEntry[]>([]);
+  const [atlasConfig, setAtlasConfig] = useState<AtlasConfig | null>(null);
+  const [selectedCell, setSelectedCell] = useState<CellInfo | null>(null);
+  const [hoveredCell, setHoveredCell] = useState<CellInfo | null>(null);
+  const [cellPaints, setCellPaints] = useState<
+    Record<string, SurfacePaintTarget>
+  >({});
+  const [cellHeights, setCellHeights] = useState<
+    Record<string, { floor: number; ceil: number }>
+  >({});
+  const [rendererSettings, setRendererSettings] = useState<RendererSettings>(
+    () => loadSettings() ?? DEFAULT_RENDERER_SETTINGS,
+  );
+
+  // Prevent saving empty state before the initial IndexedDB load completes.
+  const storageLoadedRef = useRef(false);
+
+  // Restore atlas entries and config from IndexedDB on mount.
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await loadAtlasEntries();
+        if (stored.length === 0) {
+          storageLoadedRef.current = true;
+          return;
+        }
+        const entries: AtlasEntry[] = stored.map((s) => ({
+          ...s,
+          objectUrl: URL.createObjectURL(s.pngBlob),
+        }));
+        storageLoadedRef.current = true;
+        setAtlasEntries(entries);
+
+        const tiles = loadTileAssignments();
+        if (!tiles) return;
+        const { floorTile, wallTile, ceilTile } = tiles;
+        const sources = entries.map((e) => ({
+          imageUrl: e.objectUrl,
+          atlasJson: e.json,
+        }));
+        const packed = await loadMultiAtlas(sources, {
+          showLoadingScreen: false,
+        });
+        const resolver = packedAtlasResolver(packed);
+        const spriteNames = [
+          ...new Set(entries.flatMap((e) => e.spriteNames)),
+        ].sort();
+        setAtlasConfig({ packed, resolver, spriteNames, floorTile, wallTile, ceilTile });
+      } catch (e) {
+        console.warn("Failed to restore atlas from storage:", e);
+        storageLoadedRef.current = true;
+      }
+    })();
+  }, []);
+
+  // Persist renderer settings whenever they change.
+  useEffect(() => {
+    saveSettings(rendererSettings);
+  }, [rendererSettings]);
+
+  // Persist atlas entries whenever they change (skip until initial load done).
+  useEffect(() => {
+    if (!storageLoadedRef.current) return;
+    saveAtlasEntries(
+      atlasEntries.map(({ id, pngName, jsonName, pngBlob, json, spriteNames }) => ({
+        id,
+        pngName,
+        jsonName,
+        pngBlob,
+        json,
+        spriteNames,
+      })),
+    );
+  }, [atlasEntries]);
+
+  // Persist tile assignments whenever atlasConfig changes.
+  useEffect(() => {
+    if (!atlasConfig) return;
+    saveTileAssignments({
+      floorTile: atlasConfig.floorTile,
+      wallTile: atlasConfig.wallTile,
+      ceilTile: atlasConfig.ceilTile,
+    });
+  }, [atlasConfig]);
 
   return (
-    <DataContext.Provider value={{
-      game, setGame,
-      renderer, setRenderer,
-      atlasEntries, setAtlasEntries,
-      atlasConfig, setAtlasConfig,
-      selectedCell, setSelectedCell,
-      hoveredCell, setHoveredCell,
-      cellPaints, setCellPaints,
-      cellHeights, setCellHeights,
-      rendererSettings, setRendererSettings,
-    }}>
+    <DataContext.Provider
+      value={{
+        game,
+        setGame,
+        renderer,
+        setRenderer,
+        atlasEntries,
+        setAtlasEntries,
+        atlasConfig,
+        setAtlasConfig,
+        selectedCell,
+        setSelectedCell,
+        hoveredCell,
+        setHoveredCell,
+        cellPaints,
+        setCellPaints,
+        cellHeights,
+        setCellHeights,
+        rendererSettings,
+        setRendererSettings,
+      }}
+    >
       {children}
     </DataContext.Provider>
-  )
+  );
 }
 
 export function useData() {
-  return useContext(DataContext)
+  return useContext(DataContext);
 }

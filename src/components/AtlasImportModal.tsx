@@ -94,6 +94,7 @@ export default function AtlasImportModal({ onClose }: Props) {
   const jsonInputRef = useRef<HTMLInputElement>(null)
   const [draftPngUrl, setDraftPngUrl] = useState<string | null>(null)
   const [draftPngName, setDraftPngName] = useState<string | null>(null)
+  const [draftPngBlob, setDraftPngBlob] = useState<Blob | null>(null)
   const [draftJson, setDraftJson] = useState<TextureAtlasJson | null>(null)
   const [draftJsonName, setDraftJsonName] = useState<string | null>(null)
   const [draftSpriteNames, setDraftSpriteNames] = useState<string[]>([])
@@ -119,6 +120,7 @@ export default function AtlasImportModal({ onClose }: Props) {
     if (draftPngUrl) URL.revokeObjectURL(draftPngUrl)
     setDraftPngUrl(URL.createObjectURL(file))
     setDraftPngName(file.name)
+    setDraftPngBlob(file)
     setAddError(null)
   }
 
@@ -141,12 +143,13 @@ export default function AtlasImportModal({ onClose }: Props) {
   }
 
   function handleAddEntry() {
-    if (!draftPngUrl || !draftJson || !draftPngName || !draftJsonName) return
+    if (!draftPngUrl || !draftJson || !draftPngName || !draftJsonName || !draftPngBlob) return
     const entry: AtlasEntry = {
       id: crypto.randomUUID(),
       pngName: draftPngName,
       jsonName: draftJsonName,
       objectUrl: draftPngUrl,
+      pngBlob: draftPngBlob,
       json: draftJson,
       spriteNames: draftSpriteNames,
     }
@@ -160,6 +163,7 @@ export default function AtlasImportModal({ onClose }: Props) {
     // reset draft
     setDraftPngUrl(null)
     setDraftPngName(null)
+    setDraftPngBlob(null)
     setDraftJson(null)
     setDraftJsonName(null)
     setDraftSpriteNames([])
@@ -194,16 +198,17 @@ export default function AtlasImportModal({ onClose }: Props) {
     }
   }
 
-  const canAdd   = !!draftPngUrl && !!draftJson
+  const canAdd   = !!draftPngUrl && !!draftJson && !!draftPngBlob
   const canApply = atlasEntries.length > 0 && !!floorTile && !!wallTile && !!ceilTile && !loading
 
   // Include the unsaved draft so the tile grid shows tiles before "+ Add" is clicked
-  const entriesForGrid: AtlasEntry[] = draftPngUrl && draftJson && draftPngName && draftJsonName
+  const entriesForGrid: AtlasEntry[] = draftPngUrl && draftJson && draftPngName && draftJsonName && draftPngBlob
     ? [...atlasEntries, {
         id: '__draft__',
         pngName: draftPngName,
         jsonName: draftJsonName,
         objectUrl: draftPngUrl,
+        pngBlob: draftPngBlob,
         json: draftJson,
         spriteNames: draftSpriteNames,
       }]
