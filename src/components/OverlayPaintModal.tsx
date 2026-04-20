@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Modal from './Modal'
 import { useData } from '../DataContext'
-import type { AtlasEntry, SurfacePaintTarget } from '../DataContext'
+import type { AtlasEntry, SurfacePaintTarget, CellInfo } from '../DataContext'
 
 type Face = 'floor' | 'wall' | 'ceil'
 const FACES: Face[] = ['floor', 'wall', 'ceil']
@@ -89,10 +89,12 @@ function SpriteSwatch({ name, entries }: { name: string; entries: AtlasEntry[] }
 interface Props {
   cx: number
   cz: number
+  /** When provided, paint is applied to all these cells instead of just cx/cz. */
+  cells?: CellInfo[]
   onClose: () => void
 }
 
-export default function OverlayPaintModal({ cx, cz, onClose }: Props) {
+export default function OverlayPaintModal({ cx, cz, cells, onClose }: Props) {
   const { game, atlasEntries, atlasConfig, cellPaints, setCellPaints } = useData()
   const key = `${cx},${cz}`
   const existing = cellPaints[key] ?? {}
@@ -130,21 +132,29 @@ export default function OverlayPaintModal({ cx, cz, onClose }: Props) {
     if (faceLayers.wall.length) target.wall = faceLayers.wall
     if (faceLayers.ceil.length) target.ceil = faceLayers.ceil
 
+    const applyTo = cells ?? [{ cx, cz }]
     const next = { ...cellPaints }
     const isEmpty = !target.floor && !target.wall && !target.ceil
-    if (isEmpty) {
-      delete next[key]
-      game.dungeon.unpaint(cx, cz)
-    } else {
-      next[key] = target
-      game.dungeon.paint(cx, cz, target)
+    for (const cell of applyTo) {
+      const k = `${cell.cx},${cell.cz}`
+      if (isEmpty) {
+        delete next[k]
+        game.dungeon.unpaint(cell.cx, cell.cz)
+      } else {
+        next[k] = target
+        game.dungeon.paint(cell.cx, cell.cz, target)
+      }
     }
     setCellPaints(next)
     onClose()
   }
 
+  const title = cells && cells.length > 1
+    ? `Surface Layers (${cells.length} cells)`
+    : `Surface Layers (${cx}, ${cz})`
+
   return (
-    <Modal title={`Surface Layers (${cx}, ${cz})`} onClose={onClose}>
+    <Modal title={title} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Face tabs */}

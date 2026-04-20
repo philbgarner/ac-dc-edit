@@ -1,11 +1,123 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { createGame, createDungeonRenderer, attachKeybindings } from 'atomic-core'
-import type { DungeonRenderer, DungeonRendererOptions, LayerHandle } from 'atomic-core'
+import type { DungeonRenderer, DungeonRendererOptions, LayerHandle, CellInfo } from 'atomic-core'
 import { useData } from '../DataContext'
+import type { PaintTool } from '../DataContext'
+
+// ── Geometry helpers ────────────────────────────────────────────────────────
+
+function cell(cx: number, cz: number): CellInfo {
+  return { cx, cz, regionId: undefined as unknown as number }
+}
+
+function getRectBorderCells(a: CellInfo, b: CellInfo): CellInfo[] {
+  const minX = Math.min(a.cx, b.cx), maxX = Math.max(a.cx, b.cx)
+  const minZ = Math.min(a.cz, b.cz), maxZ = Math.max(a.cz, b.cz)
+  const cells: CellInfo[] = []
+  for (let cx = minX; cx <= maxX; cx++)
+    for (let cz = minZ; cz <= maxZ; cz++)
+      if (cx === minX || cx === maxX || cz === minZ || cz === maxZ)
+        cells.push(cell(cx, cz))
+  return cells
+}
+
+function getFilledRectCells(a: CellInfo, b: CellInfo): CellInfo[] {
+  const minX = Math.min(a.cx, b.cx), maxX = Math.max(a.cx, b.cx)
+  const minZ = Math.min(a.cz, b.cz), maxZ = Math.max(a.cz, b.cz)
+  const cells: CellInfo[] = []
+  for (let cx = minX; cx <= maxX; cx++)
+    for (let cz = minZ; cz <= maxZ; cz++)
+      cells.push(cell(cx, cz))
+  return cells
+}
+
+function getCircleEdgeCells(center: CellInfo, edge: CellInfo): CellInfo[] {
+  const r = Math.sqrt((edge.cx - center.cx) ** 2 + (edge.cz - center.cz) ** 2)
+  const seen = new Set<string>()
+  const cells: CellInfo[] = []
+  const steps = Math.max(32, Math.ceil(2 * Math.PI * r * 3))
+  for (let i = 0; i < steps; i++) {
+    const angle = (i / steps) * 2 * Math.PI
+    const cx = Math.round(center.cx + r * Math.cos(angle))
+    const cz = Math.round(center.cz + r * Math.sin(angle))
+    const key = `${cx},${cz}`
+    if (!seen.has(key)) { seen.add(key); cells.push(cell(cx, cz)) }
+  }
+  return cells
+}
+
+function getFilledCircleCells(center: CellInfo, edge: CellInfo): CellInfo[] {
+  const r = Math.sqrt((edge.cx - center.cx) ** 2 + (edge.cz - center.cz) ** 2)
+  const rCeil = Math.ceil(r)
+  const cells: CellInfo[] = []
+  for (let dz = -rCeil; dz <= rCeil; dz++)
+    for (let dx = -rCeil; dx <= rCeil; dx++)
+      if (dx * dx + dz * dz <= r * r)
+        cells.push(cell(center.cx + dx, center.cz + dz))
+  return cells
+}
+
+function getFloodFillCells(info: CellInfo, game: ReturnType<typeof createGame> | null): CellInfo[] {
+  if (!info.regionId || !game) return [info]
+  const outputs = game.dungeon.outputs as { rooms?: Map<number, { rect: { x: number; y: number; w: number; h: number } }> } | null
+  if (!outputs) return [info]
+  const room = outputs.rooms?.get(info.regionId)
+  if (!room) return [info]
+  const { x, y, w, h } = room.rect
+  const cells: CellInfo[] = []
+  for (let cz = y; cz < y + h; cz++)
+    for (let cx = x; cx < x + w; cx++)
+      cells.push({ cx, cz, regionId: info.regionId })
+  return cells
+}
+
+// ── Component ───────────────────────────────────────────────────────────────
 
 export default function DungeonView() {
+  const {
+    setGame, game, atlasConfig,
+    setSelectedCell, setHoveredCell,
+    setRenderer, rendererSettings,
+    activeTool, selectedCells, setSelectedCells,
+  } = useData()
+
   const viewportRef = useRef<HTMLDivElement>(null)
-  const { setGame, game, atlasConfig, setSelectedCell, setHoveredCell, setRenderer, rendererSettings } = useData()
+  const hoverHandleRef = useRef<LayerHandle | null>(null)
+  const selectHandleRef = useRef<LayerHandle | null>(null)
+  const rendererRef = useRef<DungeonRenderer | null>(null)
+  const activeToolRef = useRef<PaintTool | null>(null)
+  const selectedCellsRef = useRef<Map<string, CellInfo>>(new Map())
+  const pendingCellRef = useRef<CellInfo | null>(null)
+  const gameRef = useRef(game)
+
+  useEffect(() => { gameRef.current = game }, [game])
+  useEffect(() => { activeToolRef.current = activeTool }, [activeTool])
+
+  const refreshSelectHighlight = useCallback(() => {
+    selectHandleRef.current?.remove()
+    selectHandleRef.current = null
+    const r = rendererRef.current
+    if (!r) return
+    const cellMap = selectedCellsRef.current
+    const pending = pendingCellRef.current
+    if (cellMap.size === 0 && !pending) return
+    selectHandleRef.current = r.highlightCells((cx, cz) => {
+      if (cellMap.has(`${cx},${cz}`)) return 'rgba(255, 230, 20, 0.5)'
+      if (pending && cx === pending.cx && cz === pending.cz) return 'rgba(0, 220, 80, 0.6)'
+      return null
+    })
+  }, [])
+
+  useEffect(() => {
+    selectedCellsRef.current = new Map(selectedCells.map(c => [`${c.cx},${c.cz}`, c]))
+    refreshSelectHighlight()
+  }, [selectedCells, refreshSelectHighlight])
+
+  // Clear pending first-click when tool changes
+  useEffect(() => {
+    pendingCellRef.current = null
+    refreshSelectHighlight()
+  }, [activeTool, refreshSelectHighlight])
 
   // Effect 1: create game, generate dungeon, attach keybindings — runs once
   useEffect(() => {
@@ -68,8 +180,6 @@ export default function DungeonView() {
     if (!el || !game) return
 
     let renderer: DungeonRenderer
-    let hoverHandle: LayerHandle | null = null
-    let selectHandle: LayerHandle | null = null
 
     const atlasOptions: DungeonRendererOptions = atlasConfig
       ? {
@@ -81,9 +191,6 @@ export default function DungeonView() {
         }
       : {}
 
-    // Emit a synthetic turn so the renderer initialises its camera position
-    // and the minimap draws its initial state. Deferred to the next event-loop
-    // tick so sibling effects (e.g. attachMinimap in Minimap) are registered first.
     const initTimer = setTimeout(() => game.events.emit('turn', { turn: 0 }), 0)
 
     renderer = createDungeonRenderer(el, game, {
@@ -91,29 +198,79 @@ export default function DungeonView() {
       ...rendererSettings,
 
       onCellHover(info) {
-        if (hoverHandle) { hoverHandle.remove(); hoverHandle = null }
+        hoverHandleRef.current?.remove()
+        hoverHandleRef.current = null
         if (!info) { setHoveredCell(null); return }
         setHoveredCell(info)
-        hoverHandle = renderer.highlightCells((cx, cz) =>
+        hoverHandleRef.current = renderer.highlightCells((cx, cz) =>
           cx === info.cx && cz === info.cz ? 'rgba(20, 80, 255, 0.55)' : null,
         )
       },
 
       onCellClick(info) {
-        if (selectHandle) { selectHandle.remove(); selectHandle = null }
-        setSelectedCell(info)
-        selectHandle = renderer.highlightCells((cx, cz) =>
-          cx === info.cx && cz === info.cz ? 'rgba(255, 230, 20, 0.5)' : null,
-        )
+        const tool = activeToolRef.current
+
+        if (!tool) {
+          // Default: single-cell selection, clear multi-selection
+          setSelectedCells([])
+          setSelectedCell(info)
+          // Single-cell highlight via refreshSelectHighlight after state update
+          selectHandleRef.current?.remove()
+          selectHandleRef.current = renderer.highlightCells((cx, cz) =>
+            cx === info.cx && cz === info.cz ? 'rgba(255, 230, 20, 0.5)' : null,
+          )
+          return
+        }
+
+        // Clear single-cell selection when using tools
+        setSelectedCell(null)
+
+        const pending = pendingCellRef.current
+
+        if (tool === 'pencil') {
+          const key = `${info.cx},${info.cz}`
+          const next = new Map(selectedCellsRef.current)
+          if (next.has(key)) next.delete(key)
+          else next.set(key, info)
+          setSelectedCells(Array.from(next.values()))
+          return
+        }
+
+        if (tool === 'floodFill') {
+          setSelectedCells(getFloodFillCells(info, gameRef.current))
+          return
+        }
+
+        // Two-click tools
+        if (!pending) {
+          pendingCellRef.current = info
+          refreshSelectHighlight()
+          return
+        }
+
+        pendingCellRef.current = null
+        let cells: CellInfo[]
+        if (tool === 'rect') cells = getRectBorderCells(pending, info)
+        else if (tool === 'filledRect') cells = getFilledRectCells(pending, info)
+        else if (tool === 'circle') cells = getCircleEdgeCells(pending, info)
+        else cells = getFilledCircleCells(pending, info)
+        setSelectedCells(cells)
       },
     })
 
+    rendererRef.current = renderer
     setRenderer(renderer)
+
+    // Restore selection highlight after renderer recreate
+    refreshSelectHighlight()
 
     return () => {
       clearTimeout(initTimer)
-      hoverHandle?.remove()
-      selectHandle?.remove()
+      hoverHandleRef.current?.remove()
+      selectHandleRef.current?.remove()
+      hoverHandleRef.current = null
+      selectHandleRef.current = null
+      rendererRef.current = null
       setRenderer(null)
       renderer.destroy()
     }

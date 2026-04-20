@@ -25,6 +25,8 @@ import {
 
 export type { SurfacePaintTarget };
 
+export type PaintTool = 'pencil' | 'rect' | 'filledRect' | 'circle' | 'filledCircle' | 'floodFill'
+
 export interface RendererSettings {
   fov: number;
   tileSize: number;
@@ -101,6 +103,10 @@ interface DataContextValue {
   ) => void;
   rendererSettings: RendererSettings;
   setRendererSettings: (settings: RendererSettings) => void;
+  activeTool: PaintTool | null;
+  setActiveTool: (tool: PaintTool | null) => void;
+  selectedCells: CellInfo[];
+  setSelectedCells: (cells: CellInfo[]) => void;
 }
 
 const DataContext = createContext<DataContextValue>({
@@ -122,6 +128,10 @@ const DataContext = createContext<DataContextValue>({
   setCellHeights: () => {},
   rendererSettings: DEFAULT_RENDERER_SETTINGS,
   setRendererSettings: () => {},
+  activeTool: null,
+  setActiveTool: () => {},
+  selectedCells: [],
+  setSelectedCells: () => {},
 });
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -140,6 +150,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [rendererSettings, setRendererSettings] = useState<RendererSettings>(
     () => loadSettings() ?? DEFAULT_RENDERER_SETTINGS,
   );
+  const [activeTool, setActiveTool] = useState<PaintTool | null>(null);
+  const [selectedCells, setSelectedCells] = useState<CellInfo[]>([]);
 
   // Prevent saving empty state before the initial IndexedDB load completes.
   const storageLoadedRef = useRef(false);
@@ -233,6 +245,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setCellHeights,
         rendererSettings,
         setRendererSettings,
+        activeTool,
+        setActiveTool,
+        selectedCells,
+        setSelectedCells,
       }}
     >
       {children}
