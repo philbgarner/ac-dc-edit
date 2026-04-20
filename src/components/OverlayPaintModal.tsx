@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import Modal from './Modal'
 import { useData } from '../DataContext'
-import type { AtlasEntry, SurfacePaintTarget, CellInfo } from '../DataContext'
+import type { SurfacePaintTarget, CellInfo } from '../DataContext'
+import type { PackedAtlas } from 'atomic-core'
 
 type Face = 'floor' | 'wall' | 'ceil'
 const FACES: Face[] = ['floor', 'wall', 'ceil']
@@ -9,8 +10,28 @@ const FACE_LABEL: Record<Face, string> = { floor: 'Floor', wall: 'Wall', ceil: '
 
 const TILE_SIZE = 44
 
-function TileGrid({ entries, spriteNames, selected, onSelect }: {
-  entries: AtlasEntry[]
+function spriteStyle(packed: PackedAtlas, atlasUrl: string, name: string, displaySize: number) {
+  const sprite = packed.getByName(name)
+  if (!sprite) return null
+  const atlasW = packed.texture.width
+  const atlasH = packed.texture.height
+  const spriteW = sprite.uvW * atlasW
+  const spriteH = sprite.uvH * atlasH
+  const scale = displaySize / Math.max(spriteW, spriteH)
+  return {
+    width: Math.round(spriteW * scale),
+    height: Math.round(spriteH * scale),
+    backgroundImage: `url(${atlasUrl})`,
+    backgroundPosition: `-${Math.round(sprite.uvX * atlasW * scale)}px -${Math.round(sprite.uvY * atlasH * scale)}px`,
+    backgroundSize: `${Math.round(atlasW * scale)}px ${Math.round(atlasH * scale)}px`,
+    backgroundRepeat: 'no-repeat' as const,
+    imageRendering: 'pixelated' as const,
+  }
+}
+
+function TileGrid({ packed, atlasUrl, spriteNames, selected, onSelect }: {
+  packed: PackedAtlas
+  atlasUrl: string
   spriteNames: string[]
   selected: string | null
   onSelect: (name: string) => void
@@ -23,16 +44,8 @@ function TileGrid({ entries, spriteNames, selected, onSelect }: {
       border: '1px solid #1e2a50',
     }}>
       {spriteNames.map(name => {
-        const entry = entries.find(e => e.spriteNames.includes(name))
-        if (!entry) return null
-        const frame = entry.json.frames[name]?.frame
-        const meta = entry.json.meta.size
-        if (!frame) return null
-        const scale = TILE_SIZE / Math.max(frame.w, frame.h)
-        const dispW = Math.round(frame.w * scale)
-        const dispH = Math.round(frame.h * scale)
-        const atlasW = Math.round(meta.w * scale)
-        const atlasH = Math.round(meta.h * scale)
+        const style = spriteStyle(packed, atlasUrl, name, TILE_SIZE)
+        if (!style) return null
         const isSelected = name === selected
         return (
           <div
@@ -47,14 +60,7 @@ function TileGrid({ entries, spriteNames, selected, onSelect }: {
               background: isSelected ? '#1a2a50' : '#111828',
             }}
           >
-            <div style={{
-              width: dispW, height: dispH,
-              backgroundImage: `url(${entry.objectUrl})`,
-              backgroundPosition: `-${Math.round(frame.x * scale)}px -${Math.round(frame.y * scale)}px`,
-              backgroundSize: `${atlasW}px ${atlasH}px`,
-              backgroundRepeat: 'no-repeat',
-              imageRendering: 'pixelated',
-            }} />
+            <div style={style} />
           </div>
         )
       })}
@@ -62,25 +68,12 @@ function TileGrid({ entries, spriteNames, selected, onSelect }: {
   )
 }
 
-function SpriteSwatch({ name, entries }: { name: string; entries: AtlasEntry[] }) {
-  const entry = entries.find(e => e.spriteNames.includes(name))
-  if (!entry) return <span style={{ color: '#506080', fontSize: 11 }}>{name}</span>
-  const frame = entry.json.frames[name]?.frame
-  const meta = entry.json.meta.size
-  if (!frame) return <span style={{ color: '#506080', fontSize: 11 }}>{name}</span>
-  const SIZE = 24
-  const scale = SIZE / Math.max(frame.w, frame.h)
+function SpriteSwatch({ name, packed, atlasUrl }: { name: string; packed: PackedAtlas; atlasUrl: string }) {
+  const style = spriteStyle(packed, atlasUrl, name, 24)
+  if (!style) return <span style={{ color: '#506080', fontSize: 11 }}>{name}</span>
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <div style={{
-        width: SIZE, height: SIZE, flexShrink: 0,
-        backgroundImage: `url(${entry.objectUrl})`,
-        backgroundPosition: `-${Math.round(frame.x * scale)}px -${Math.round(frame.y * scale)}px`,
-        backgroundSize: `${Math.round(meta.w * scale)}px ${Math.round(meta.h * scale)}px`,
-        backgroundRepeat: 'no-repeat',
-        imageRendering: 'pixelated',
-        borderRadius: 2,
-      }} />
+      <div style={{ ...style, flexShrink: 0, borderRadius: 2 }} />
       <span style={{ color: '#c0c8f0', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
     </div>
   )
@@ -95,7 +88,7 @@ interface Props {
 }
 
 export default function OverlayPaintModal({ cx, cz, cells, onClose }: Props) {
-  const { game, atlasEntries, atlasConfig, cellPaints, setCellPaints } = useData()
+  const { game, atlasConfig, packedAtlasUrl, cellPaints, setCellPaints } = useData()
   const key = `${cx},${cz}`
   const existing = cellPaints[key] ?? {}
 
@@ -153,6 +146,8 @@ export default function OverlayPaintModal({ cx, cz, cells, onClose }: Props) {
     ? `Surface Layers (${cells.length} cells)`
     : `Surface Layers (${cx}, ${cz})`
 
+  const canShowTiles = spriteNames.length > 0 && atlasConfig && packedAtlasUrl
+
   return (
     <Modal title={title} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -191,7 +186,10 @@ export default function OverlayPaintModal({ cx, cz, cells, onClose }: Props) {
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#111828', borderRadius: 3, padding: '4px 8px' }}>
                   <span style={{ color: '#6070a0', fontSize: 11, minWidth: 16 }}>{i + 1}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <SpriteSwatch name={name} entries={atlasEntries} />
+                    {canShowTiles
+                      ? <SpriteSwatch name={name} packed={atlasConfig.packed} atlasUrl={packedAtlasUrl} />
+                      : <span style={{ color: '#c0c8f0', fontSize: 12 }}>{name}</span>
+                    }
                   </div>
                   <button
                     onClick={() => removeLayer(i)}
@@ -203,13 +201,14 @@ export default function OverlayPaintModal({ cx, cz, cells, onClose }: Props) {
         </div>
 
         {/* Add layer */}
-        {spriteNames.length > 0 && layers.length < 4 && (
+        {canShowTiles && layers.length < 4 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <span style={{ color: '#7080b0', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
               Add to {FACE_LABEL[face].toLowerCase()}
             </span>
             <TileGrid
-              entries={atlasEntries}
+              packed={atlasConfig.packed}
+              atlasUrl={packedAtlasUrl}
               spriteNames={spriteNames}
               selected={picking}
               onSelect={setPicking}
@@ -229,7 +228,7 @@ export default function OverlayPaintModal({ cx, cz, cells, onClose }: Props) {
           </div>
         )}
 
-        {spriteNames.length === 0 && (
+        {!canShowTiles && (
           <span style={{ color: '#506080', fontSize: 12, fontStyle: 'italic' }}>
             Load an atlas first to pick tiles.
           </span>

@@ -83,6 +83,7 @@ interface DataContextValue {
   setAtlasEntries: (entries: AtlasEntry[]) => void;
   atlasConfig: AtlasConfig | null;
   setAtlasConfig: (config: AtlasConfig | null) => void;
+  packedAtlasUrl: string | null;
   selectedCell: CellInfo | null;
   setSelectedCell: (cell: CellInfo | null) => void;
   hoveredCell: CellInfo | null;
@@ -118,6 +119,7 @@ const DataContext = createContext<DataContextValue>({
   setAtlasEntries: () => {},
   atlasConfig: null,
   setAtlasConfig: () => {},
+  packedAtlasUrl: null,
   selectedCell: null,
   setSelectedCell: () => {},
   hoveredCell: null,
@@ -139,6 +141,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [renderer, setRenderer] = useState<DungeonRenderer | null>(null);
   const [atlasEntries, setAtlasEntries] = useState<AtlasEntry[]>([]);
   const [atlasConfig, setAtlasConfig] = useState<AtlasConfig | null>(null);
+  const [packedAtlasUrl, setPackedAtlasUrl] = useState<string | null>(null);
   const [selectedCell, setSelectedCell] = useState<CellInfo | null>(null);
   const [hoveredCell, setHoveredCell] = useState<CellInfo | null>(null);
   const [cellPaints, setCellPaints] = useState<
@@ -152,6 +155,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
   const [activeTool, setActiveTool] = useState<PaintTool | null>(null);
   const [selectedCells, setSelectedCells] = useState<CellInfo[]>([]);
+
+  useEffect(() => {
+    if (!atlasConfig) { setPackedAtlasUrl(null); return; }
+    const canvas = atlasConfig.packed.texture;
+    let url: string;
+    let revoked = false;
+    (async () => {
+      let blob: Blob;
+      if (canvas instanceof HTMLCanvasElement) {
+        blob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!)));
+      } else {
+        blob = await (canvas as OffscreenCanvas).convertToBlob();
+      }
+      if (revoked) return;
+      url = URL.createObjectURL(blob);
+      setPackedAtlasUrl(url);
+    })();
+    return () => {
+      revoked = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [atlasConfig]);
 
   // Prevent saving empty state before the initial IndexedDB load completes.
   const storageLoadedRef = useRef(false);
@@ -235,6 +260,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setAtlasEntries,
         atlasConfig,
         setAtlasConfig,
+        packedAtlasUrl,
         selectedCell,
         setSelectedCell,
         hoveredCell,

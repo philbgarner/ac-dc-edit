@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { loadMultiAtlas, packedAtlasResolver } from 'atomic-core'
-import type { TextureAtlasJson } from 'atomic-core'
+import type { TextureAtlasJson, PackedAtlas } from 'atomic-core'
 import { useData } from '../DataContext'
 import type { AtlasEntry } from '../DataContext'
 import Modal from './Modal'
@@ -28,6 +28,8 @@ const divider: React.CSSProperties = {
 // ── Tile grid picker ──────────────────────────────────────────────────────────
 
 interface TileGridProps {
+  packed: PackedAtlas | null
+  atlasUrl: string | null
   entries: AtlasEntry[]
   spriteNames: string[]
   value: string
@@ -36,7 +38,52 @@ interface TileGridProps {
 
 const TILE_SIZE = 48
 
-function TileGrid({ entries, spriteNames, value, onChange }: TileGridProps) {
+function resolveSprite(
+  name: string,
+  displaySize: number,
+  packed: PackedAtlas | null,
+  atlasUrl: string | null,
+  entries: AtlasEntry[],
+) {
+  // prefer baked packed atlas
+  if (packed && atlasUrl) {
+    const sprite = packed.getByName(name)
+    if (sprite) {
+      const atlasW = packed.texture.width
+      const atlasH = packed.texture.height
+      const spriteW = sprite.uvW * atlasW
+      const spriteH = sprite.uvH * atlasH
+      const scale = displaySize / Math.max(spriteW, spriteH)
+      return {
+        width: Math.round(spriteW * scale),
+        height: Math.round(spriteH * scale),
+        backgroundImage: `url(${atlasUrl})`,
+        backgroundPosition: `-${Math.round(sprite.uvX * atlasW * scale)}px -${Math.round(sprite.uvY * atlasH * scale)}px`,
+        backgroundSize: `${Math.round(atlasW * scale)}px ${Math.round(atlasH * scale)}px`,
+        backgroundRepeat: 'no-repeat' as const,
+        imageRendering: 'pixelated' as const,
+      }
+    }
+  }
+  // fallback: per-entry (covers draft sprites not yet in packed atlas)
+  const entry = entries.find(e => e.spriteNames.includes(name))
+  if (!entry) return null
+  const frame = entry.json.frames[name]?.frame
+  const meta = entry.json.meta.size
+  if (!frame) return null
+  const scale = displaySize / Math.max(frame.w, frame.h)
+  return {
+    width: Math.round(frame.w * scale),
+    height: Math.round(frame.h * scale),
+    backgroundImage: `url(${entry.objectUrl})`,
+    backgroundPosition: `-${Math.round(frame.x * scale)}px -${Math.round(frame.y * scale)}px`,
+    backgroundSize: `${Math.round(meta.w * scale)}px ${Math.round(meta.h * scale)}px`,
+    backgroundRepeat: 'no-repeat' as const,
+    imageRendering: 'pixelated' as const,
+  }
+}
+
+function TileGrid({ packed, atlasUrl, entries, spriteNames, value, onChange }: TileGridProps) {
   return (
     <div style={{
       display: 'flex', flexWrap: 'wrap', gap: 4,
@@ -45,16 +92,8 @@ function TileGrid({ entries, spriteNames, value, onChange }: TileGridProps) {
       border: '1px solid #1e2a50',
     }}>
       {spriteNames.map(name => {
-        const entry = entries.find(e => e.spriteNames.includes(name))
-        if (!entry) return null
-        const frame = entry.json.frames[name]?.frame
-        const meta = entry.json.meta.size
-        if (!frame) return null
-        const scale = TILE_SIZE / Math.max(frame.w, frame.h)
-        const dispW = Math.round(frame.w * scale)
-        const dispH = Math.round(frame.h * scale)
-        const atlasW = Math.round(meta.w * scale)
-        const atlasH = Math.round(meta.h * scale)
+        const style = resolveSprite(name, TILE_SIZE, packed, atlasUrl, entries)
+        if (!style) return null
         const selected = name === value
         return (
           <div
@@ -69,14 +108,7 @@ function TileGrid({ entries, spriteNames, value, onChange }: TileGridProps) {
               background: selected ? '#1a2a50' : '#111828',
             }}
           >
-            <div style={{
-              width: dispW, height: dispH,
-              backgroundImage: `url(${entry.objectUrl})`,
-              backgroundPosition: `-${Math.round(frame.x * scale)}px -${Math.round(frame.y * scale)}px`,
-              backgroundSize: `${atlasW}px ${atlasH}px`,
-              backgroundRepeat: 'no-repeat',
-              imageRendering: 'pixelated',
-            }} />
+            <div style={style} />
           </div>
         )
       })}
@@ -87,7 +119,7 @@ function TileGrid({ entries, spriteNames, value, onChange }: TileGridProps) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function AtlasImportModal({ onClose }: Props) {
-  const { atlasEntries, setAtlasEntries, atlasConfig, setAtlasConfig } = useData()
+  const { atlasEntries, setAtlasEntries, atlasConfig, setAtlasConfig, packedAtlasUrl } = useData()
 
   // "Add atlas" form — local draft state
   const pngInputRef = useRef<HTMLInputElement>(null)
@@ -290,6 +322,8 @@ export default function AtlasImportModal({ onClose }: Props) {
                     }
                   </div>
                   <TileGrid
+                    packed={atlasConfig?.packed ?? null}
+                    atlasUrl={packedAtlasUrl}
                     entries={entriesForGrid}
                     spriteNames={allSpriteNames}
                     value={value}
