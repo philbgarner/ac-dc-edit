@@ -4,9 +4,12 @@ interface ModalProps {
   onClose: () => void
   title?: string
   children: ReactNode
+  /** When true, renders without the full-screen backdrop overlay. */
+  bare?: boolean
+  style?: React.CSSProperties
 }
 
-export default function Modal({ onClose, title, children }: ModalProps) {
+export default function Modal({ onClose, title, children, bare, style }: ModalProps) {
   // Close on Escape
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -16,21 +19,8 @@ export default function Modal({ onClose, title, children }: ModalProps) {
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.6)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 100,
-      }}
-    >
+  const panel = (
       <div
-        onClick={e => e.stopPropagation()}
         style={{
           background: '#0e1428',
           border: '1px solid #304080',
@@ -46,6 +36,7 @@ export default function Modal({ onClose, title, children }: ModalProps) {
           display: 'flex',
           flexDirection: 'column',
           gap: 16,
+          ...style,
         }}
       >
         {/* Header */}
@@ -69,6 +60,26 @@ export default function Modal({ onClose, title, children }: ModalProps) {
         </div>
 
         {children}
+      </div>
+  )
+
+  if (bare) return panel
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 100,
+      }}
+    >
+      <div onClick={e => e.stopPropagation()}>
+        {panel}
       </div>
     </div>
   )

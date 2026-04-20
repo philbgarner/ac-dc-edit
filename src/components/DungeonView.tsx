@@ -5,7 +5,7 @@ import { useData } from '../DataContext'
 
 export default function DungeonView() {
   const viewportRef = useRef<HTMLDivElement>(null)
-  const { setGame, game, atlasConfig, setSelectedCell, setHoveredCell } = useData()
+  const { setGame, game, atlasConfig, setSelectedCell, setHoveredCell, setRenderer } = useData()
 
   // Effect 1: create game, generate dungeon, attach keybindings — runs once
   useEffect(() => {
@@ -107,10 +107,13 @@ export default function DungeonView() {
       },
     })
 
+    setRenderer(renderer)
+
     return () => {
       clearTimeout(initTimer)
       hoverHandle?.remove()
       selectHandle?.remove()
+      setRenderer(null)
       renderer.destroy()
     }
   }, [game, atlasConfig])
