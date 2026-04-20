@@ -188,6 +188,22 @@ export default function DungeonView() {
           floorTile: atlasConfig.floorTile,
           ceilTile: atlasConfig.ceilTile,
           wallTile: atlasConfig.wallTile,
+          ...(atlasConfig.floorSkirtTile ? {
+            floorSkirtTiles: {
+              north: { tile: atlasConfig.floorSkirtTile },
+              south: { tile: atlasConfig.floorSkirtTile },
+              east:  { tile: atlasConfig.floorSkirtTile },
+              west:  { tile: atlasConfig.floorSkirtTile },
+            },
+          } : {}),
+          ...(atlasConfig.ceilSkirtTile ? {
+            ceilSkirtTiles: {
+              north: { tile: atlasConfig.ceilSkirtTile },
+              south: { tile: atlasConfig.ceilSkirtTile },
+              east:  { tile: atlasConfig.ceilSkirtTile },
+              west:  { tile: atlasConfig.ceilSkirtTile },
+            },
+          } : {}),
         }
       : {}
 

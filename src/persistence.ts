@@ -20,6 +20,8 @@ export interface TileAssignments {
   floorTile: string;
   wallTile: string;
   ceilTile: string;
+  floorSkirtTile?: string;
+  ceilSkirtTile?: string;
 }
 
 function openDb(): Promise<IDBDatabase> {

@@ -72,6 +72,8 @@ export interface AtlasConfig {
   floorTile: string;
   wallTile: string;
   ceilTile: string;
+  floorSkirtTile: string;
+  ceilSkirtTile: string;
 }
 
 interface DataContextValue {
@@ -199,7 +201,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         const tiles = loadTileAssignments();
         if (!tiles) return;
-        const { floorTile, wallTile, ceilTile } = tiles;
+        const { floorTile, wallTile, ceilTile, floorSkirtTile = '', ceilSkirtTile = '' } = tiles;
         const sources = entries.map((e) => ({
           imageUrl: e.objectUrl,
           atlasJson: e.json,
@@ -211,7 +213,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const spriteNames = [
           ...new Set(entries.flatMap((e) => e.spriteNames)),
         ].sort();
-        setAtlasConfig({ packed, resolver, spriteNames, floorTile, wallTile, ceilTile });
+        setAtlasConfig({ packed, resolver, spriteNames, floorTile, wallTile, ceilTile, floorSkirtTile, ceilSkirtTile });
       } catch (e) {
         console.warn("Failed to restore atlas from storage:", e);
         storageLoadedRef.current = true;
@@ -246,6 +248,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       floorTile: atlasConfig.floorTile,
       wallTile: atlasConfig.wallTile,
       ceilTile: atlasConfig.ceilTile,
+      floorSkirtTile: atlasConfig.floorSkirtTile,
+      ceilSkirtTile: atlasConfig.ceilSkirtTile,
     });
   }, [atlasConfig]);
 

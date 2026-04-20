@@ -24,6 +24,9 @@ const iconBtn: React.CSSProperties = {
 const divider: React.CSSProperties = {
   border: 'none', borderTop: '1px solid #1e2a50', margin: 0,
 }
+const sectionLabel: React.CSSProperties = {
+  color: '#8090c0', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1,
+}
 
 // ── Tile grid picker ──────────────────────────────────────────────────────────
 
@@ -45,7 +48,6 @@ function resolveSprite(
   atlasUrl: string | null,
   entries: AtlasEntry[],
 ) {
-  // prefer baked packed atlas
   if (packed && atlasUrl) {
     const sprite = packed.getByName(name)
     if (sprite) {
@@ -65,7 +67,6 @@ function resolveSprite(
       }
     }
   }
-  // fallback: per-entry (covers draft sprites not yet in packed atlas)
   const entry = entries.find(e => e.spriteNames.includes(name))
   if (!entry) return null
   const frame = entry.json.frames[name]?.frame
@@ -87,7 +88,7 @@ function TileGrid({ packed, atlasUrl, entries, spriteNames, value, onChange }: T
   return (
     <div style={{
       display: 'flex', flexWrap: 'wrap', gap: 4,
-      maxHeight: 180, overflowY: 'auto',
+      maxHeight: 160, overflowY: 'auto',
       background: '#0d1428', borderRadius: 4, padding: 6,
       border: '1px solid #1e2a50',
     }}>
@@ -121,7 +122,6 @@ function TileGrid({ packed, atlasUrl, entries, spriteNames, value, onChange }: T
 export default function AtlasImportModal({ onClose }: Props) {
   const { atlasEntries, setAtlasEntries, atlasConfig, setAtlasConfig, packedAtlasUrl } = useData()
 
-  // "Add atlas" form — local draft state
   const pngInputRef = useRef<HTMLInputElement>(null)
   const jsonInputRef = useRef<HTMLInputElement>(null)
   const [draftPngUrl, setDraftPngUrl] = useState<string | null>(null)
@@ -132,14 +132,15 @@ export default function AtlasImportModal({ onClose }: Props) {
   const [draftSpriteNames, setDraftSpriteNames] = useState<string[]>([])
   const [addError, setAddError] = useState<string | null>(null)
 
-  // Tile selection — persisted from atlasConfig or defaulted
   const allSpriteNames = dedupe([
     ...atlasEntries.flatMap(e => e.spriteNames),
     ...draftSpriteNames,
   ])
-  const [floorTile, setFloorTile] = useState(atlasConfig?.floorTile ?? '')
-  const [wallTile, setWallTile]   = useState(atlasConfig?.wallTile  ?? '')
-  const [ceilTile, setCeilTile]   = useState(atlasConfig?.ceilTile  ?? '')
+  const [floorTile, setFloorTile]           = useState(atlasConfig?.floorTile      ?? '')
+  const [wallTile, setWallTile]             = useState(atlasConfig?.wallTile       ?? '')
+  const [ceilTile, setCeilTile]             = useState(atlasConfig?.ceilTile       ?? '')
+  const [floorSkirtTile, setFloorSkirtTile] = useState(atlasConfig?.floorSkirtTile ?? '')
+  const [ceilSkirtTile, setCeilSkirtTile]   = useState(atlasConfig?.ceilSkirtTile  ?? '')
 
   const [loading, setLoading] = useState(false)
   const [applyError, setApplyError] = useState<string | null>(null)
@@ -187,12 +188,10 @@ export default function AtlasImportModal({ onClose }: Props) {
     }
     const updated = [...atlasEntries, entry]
     setAtlasEntries(updated)
-    // seed tile selects from the first entry
     const combined = dedupe(updated.flatMap(e => e.spriteNames))
     if (!floorTile) setFloorTile(combined[0] ?? '')
     if (!wallTile)  setWallTile(combined[0] ?? '')
     if (!ceilTile)  setCeilTile(combined[0] ?? '')
-    // reset draft
     setDraftPngUrl(null)
     setDraftPngName(null)
     setDraftPngBlob(null)
@@ -221,7 +220,7 @@ export default function AtlasImportModal({ onClose }: Props) {
       const packed = await loadMultiAtlas(sources, { showLoadingScreen: false })
       const resolver = packedAtlasResolver(packed)
       const spriteNames = dedupe(atlasEntries.flatMap(e => e.spriteNames))
-      setAtlasConfig({ packed, resolver, spriteNames, floorTile, wallTile, ceilTile })
+      setAtlasConfig({ packed, resolver, spriteNames, floorTile, wallTile, ceilTile, floorSkirtTile, ceilSkirtTile })
       onClose()
     } catch (e) {
       setApplyError(e instanceof Error ? e.message : 'Failed to load atlases')
@@ -233,7 +232,6 @@ export default function AtlasImportModal({ onClose }: Props) {
   const canAdd   = !!draftPngUrl && !!draftJson && !!draftPngBlob
   const canApply = atlasEntries.length > 0 && !!floorTile && !!wallTile && !!ceilTile && !loading
 
-  // Include the unsaved draft so the tile grid shows tiles before "+ Add" is clicked
   const entriesForGrid: AtlasEntry[] = draftPngUrl && draftJson && draftPngName && draftJsonName && draftPngBlob
     ? [...atlasEntries, {
         id: '__draft__',
@@ -246,114 +244,143 @@ export default function AtlasImportModal({ onClose }: Props) {
       }]
     : atlasEntries
 
+  const tileRows: [string, string, (v: string) => void, boolean][] = [
+    ['Floor',       floorTile,      setFloorTile,      true],
+    ['Wall',        wallTile,       setWallTile,       true],
+    ['Ceiling',     ceilTile,       setCeilTile,       true],
+    ['Floor Skirt', floorSkirtTile, setFloorSkirtTile, false],
+    ['Ceil Skirt',  ceilSkirtTile,  setCeilSkirtTile,  false],
+  ]
+
   return (
-    <Modal title="Tile Atlases" onClose={onClose}>
+    <Modal
+      title="Tile Atlases"
+      onClose={onClose}
+      style={{
+        minWidth: 860,
+        maxWidth: '95vw',
+        maxHeight: '85vh',
+        overflow: 'hidden',
+        gap: 0,
+        padding: '20px 20px 0 20px',
+      }}
+    >
+      {/* ── Two-panel body ───────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
 
-      {/* ── Loaded atlases list ─────────────────────────────────────────────── */}
-      {atlasEntries.length > 0 && (
-        <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {atlasEntries.map((entry, i) => (
-              <div key={entry.id} style={{ ...row, background: '#111830', borderRadius: 3, padding: '4px 8px' }}>
-                <span style={{ color: '#6070a0', fontSize: 11, minWidth: 18 }}>{i + 1}</span>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>
-                  {entry.pngName}
-                </span>
-                <span style={{ color: '#506080', fontSize: 11 }}>{entry.spriteNames.length} sprites</span>
-                <button style={iconBtn} title="Remove" onClick={() => handleRemoveEntry(entry.id)}>×</button>
+        {/* Left panel: atlas list + add form */}
+        <div style={{
+          flex: '0 0 320px', overflowY: 'auto',
+          padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14,
+          borderRight: '1px solid #1e2a50',
+        }}>
+
+          {atlasEntries.length > 0 && (
+            <>
+              <span style={sectionLabel}>Loaded atlases</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {atlasEntries.map((entry, i) => (
+                  <div key={entry.id} style={{ ...row, background: '#111830', borderRadius: 3, padding: '4px 8px' }}>
+                    <span style={{ color: '#6070a0', fontSize: 11, minWidth: 18 }}>{i + 1}</span>
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>
+                      {entry.pngName}
+                    </span>
+                    <span style={{ color: '#506080', fontSize: 11 }}>{entry.spriteNames.length} sprites</span>
+                    <button style={iconBtn} title="Remove" onClick={() => handleRemoveEntry(entry.id)}>×</button>
+                  </div>
+                ))}
               </div>
-            ))}
+              <hr style={divider} />
+            </>
+          )}
+
+          <span style={sectionLabel}>Add atlas</span>
+
+          <div style={row}>
+            <span style={label}>PNG</span>
+            <button style={fileBtn} onClick={() => pngInputRef.current?.click()}>
+              {draftPngName ?? 'Choose file…'}
+            </button>
+            <input ref={pngInputRef} type="file" accept="image/png" style={{ display: 'none' }} onChange={handleDraftPng} />
           </div>
-          <hr style={divider} />
-        </>
-      )}
 
-      {/* ── Add atlas form ──────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <span style={{ color: '#8090c0', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
-          Add atlas
-        </span>
+          <div style={row}>
+            <span style={label}>JSON</span>
+            <button style={fileBtn} onClick={() => jsonInputRef.current?.click()}>
+              {draftJsonName ?? 'Choose file…'}
+            </button>
+            <input ref={jsonInputRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={handleDraftJson} />
+          </div>
 
-        <div style={row}>
-          <span style={label}>PNG</span>
-          <button style={fileBtn} onClick={() => pngInputRef.current?.click()}>
-            {draftPngName ?? 'Choose file…'}
+          {addError && <span style={{ color: '#e05050', fontSize: 11 }}>{addError}</span>}
+
+          <button
+            style={{ ...fileBtn, opacity: canAdd ? 1 : 0.45, alignSelf: 'flex-start', borderColor: '#406080' }}
+            disabled={!canAdd}
+            onClick={handleAddEntry}
+          >
+            + Add
           </button>
-          <input ref={pngInputRef} type="file" accept="image/png" style={{ display: 'none' }} onChange={handleDraftPng} />
         </div>
 
-        <div style={row}>
-          <span style={label}>JSON</span>
-          <button style={fileBtn} onClick={() => jsonInputRef.current?.click()}>
-            {draftJsonName ?? 'Choose file…'}
-          </button>
-          <input ref={jsonInputRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={handleDraftJson} />
+        {/* Right panel: tile assignments */}
+        <div style={{
+          flex: 1, overflowY: 'auto',
+          padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14,
+        }}>
+          <span style={sectionLabel}>Tile assignments</span>
+
+          {allSpriteNames.length === 0 ? (
+            <span style={{ color: '#506080', fontSize: 12 }}>Add an atlas to assign tiles.</span>
+          ) : (
+            tileRows.map(([name, value, setter, required]) => (
+              <div key={name} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ ...row }}>
+                  <span style={{ ...label, minWidth: 72 }}>
+                    {name}
+                    {required && <span style={{ color: '#e05050' }}> *</span>}
+                  </span>
+                  {value
+                    ? <span style={{ fontSize: 11, color: '#6080b0' }}>{value}</span>
+                    : <span style={{ fontSize: 11, color: '#506080' }}>
+                        {required ? '— choose below —' : '— optional —'}
+                      </span>
+                  }
+                </div>
+                <TileGrid
+                  packed={atlasConfig?.packed ?? null}
+                  atlasUrl={packedAtlasUrl}
+                  entries={entriesForGrid}
+                  spriteNames={allSpriteNames}
+                  value={value}
+                  onChange={setter}
+                />
+              </div>
+            ))
+          )}
         </div>
-
-        {addError && <span style={{ color: '#e05050', fontSize: 11 }}>{addError}</span>}
-
-        <button
-          style={{ ...fileBtn, opacity: canAdd ? 1 : 0.45, alignSelf: 'flex-start', borderColor: '#406080' }}
-          disabled={!canAdd}
-          onClick={handleAddEntry}
-        >
-          + Add
-        </button>
       </div>
 
-      {/* ── Tile selectors — shown once at least one entry exists ───────────── */}
-      {allSpriteNames.length > 0 && (
-        <>
-          <hr style={divider} />
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <span style={{ color: '#8090c0', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
-              Tile assignments
-            </span>
-
-            {([['Floor', floorTile, setFloorTile], ['Wall', wallTile, setWallTile], ['Ceiling', ceilTile, setCeilTile]] as const).map(
-              ([name, value, setter]) => (
-                <div key={name} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ ...row }}>
-                    <span style={label}>{name}</span>
-                    {value
-                      ? <span style={{ fontSize: 11, color: '#6080b0' }}>{value}</span>
-                      : <span style={{ fontSize: 11, color: '#506080' }}>— choose below —</span>
-                    }
-                  </div>
-                  <TileGrid
-                    packed={atlasConfig?.packed ?? null}
-                    atlasUrl={packedAtlasUrl}
-                    entries={entriesForGrid}
-                    spriteNames={allSpriteNames}
-                    value={value}
-                    onChange={setter}
-                  />
-                </div>
-              )
-            )}
-          </div>
-        </>
-      )}
-
-      {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      {(applyError || canApply) && <hr style={divider} />}
-
-      {applyError && <span style={{ color: '#e05050', fontSize: 11 }}>{applyError}</span>}
-
-      {atlasEntries.length > 0 && (
+      {/* ── Sticky bottom footer ─────────────────────────────────────────────── */}
+      <div style={{
+        borderTop: '1px solid #1e2a50',
+        padding: '10px 20px',
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12,
+        background: '#0e1428',
+      }}>
+        {applyError && <span style={{ color: '#e05050', fontSize: 11, flex: 1 }}>{applyError}</span>}
         <button
           style={{
             background: '#1a3080', border: '1px solid #4060c0', borderRadius: 3,
-            color: '#d0e0ff', padding: '5px 16px', cursor: 'pointer', fontSize: 12,
-            alignSelf: 'flex-end', opacity: canApply ? 1 : 0.5,
+            color: '#d0e0ff', padding: '5px 20px', cursor: 'pointer', fontSize: 12,
+            opacity: canApply ? 1 : 0.5,
           }}
           disabled={!canApply}
           onClick={handleApply}
         >
           {loading ? 'Loading…' : 'Apply'}
         </button>
-      )}
+      </div>
     </Modal>
   )
 }
