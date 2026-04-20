@@ -28,7 +28,7 @@ function Section({ title, children }: SectionProps) {
 }
 
 const OFFSET_NEUTRAL = 128
-const OFFSET_STEP_MIN = -10, OFFSET_STEP_MAX = 10
+const OFFSET_STEP_MIN = -127, OFFSET_STEP_MAX = 127
 
 interface SliderRowProps { label: string; steps: number; isPit?: boolean; onChange: (steps: number) => void; onPitToggle?: () => void }
 function SliderRow({ label, steps, isPit, onChange, onPitToggle }: SliderRowProps) {
@@ -194,7 +194,7 @@ export default function CellDetailsModal({ onClose }: Props) {
           {ceilTileId != null && <Row label="Atlas tile ID" value={ceilTileId} />}
         </Section>}
 
-        {atlasConfig && (texFloor || texCeil) && <Section title="Height Offsets">
+        {atlasConfig && (texFloor || texCeil) && <Section title={`Height Offsets (floor: ${floorIsPit ? 'pit' : floorSteps > 0 ? `+${floorSteps}` : floorSteps}, ceil: ${ceilSteps > 0 ? `+${ceilSteps}` : ceilSteps})`}>
           <SliderRow
             label="Floor offset"
             steps={floorSteps}

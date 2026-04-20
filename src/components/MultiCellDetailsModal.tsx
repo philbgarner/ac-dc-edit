@@ -4,7 +4,7 @@ import OverlayPaintModal from './OverlayPaintModal'
 import { useData } from '../DataContext'
 
 const OFFSET_NEUTRAL = 128
-const OFFSET_STEP_MIN = -10, OFFSET_STEP_MAX = 10
+const OFFSET_STEP_MIN = -127, OFFSET_STEP_MAX = 127
 
 interface SliderRowProps {
   label: string
@@ -141,7 +141,7 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
         </Section>
 
         {outputs && (texFloor || texCeil) && (
-          <Section title="Height Offsets (all cells)">
+          <Section title={`Height Offsets (floor: ${floorIsPit ? 'pit' : floorSteps > 0 ? `+${floorSteps}` : floorSteps}, ceil: ${ceilSteps > 0 ? `+${ceilSteps}` : ceilSteps})`}>
             <SliderRow
               label="Floor offset"
               steps={floorSteps}
