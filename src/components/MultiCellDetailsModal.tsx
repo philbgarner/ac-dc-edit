@@ -3,6 +3,7 @@ import Modal from './Modal'
 import AccordionSection from './AccordionSection'
 import OverlayPaintModal from './OverlayPaintModal'
 import SkirtPaintModal from './SkirtPaintModal'
+import ColliderFlagsEditor from './ColliderFlagsEditor'
 import { useData } from '../DataContext'
 
 const OFFSET_NEUTRAL = 128
@@ -51,7 +52,7 @@ interface Props {
 }
 
 export default function MultiCellDetailsModal({ onClose }: Props) {
-  const { selectedCells, game, cellHeights, setCellHeights, renderer } = useData()
+  const { selectedCells, game, cellHeights, setCellHeights, cellColliderFlags, setCellColliderFlags, customFlagNames, setCustomFlagNames, renderer } = useData()
   const [floorSteps, setFloorSteps] = useState(0)
   const [ceilSteps, setCeilSteps] = useState(0)
   const [floorIsPit, setFloorIsPit] = useState(false)
@@ -99,6 +100,24 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
   const maxZ = Math.max(...selectedCells.map(c => c.cz))
 
   const firstCell = selectedCells[0]
+
+  const texCollider = outputs?.textures.colliderFlags as { image: { data: Uint8Array } } | undefined
+  const firstKey = `${firstCell.cx},${firstCell.cz}`
+  const colliderValue: number = texCollider?.image.data
+    ? (texCollider.image.data[firstCell.cz * width + firstCell.cx] ?? 0)
+    : (cellColliderFlags[firstKey] ?? 0)
+
+  function writeAllColliderFlags(v: number) {
+    if (texCollider?.image.data) {
+      for (const { cx, cz } of selectedCells)
+        texCollider.image.data[cz * width + cx] = v
+    }
+    const next = { ...cellColliderFlags }
+    for (const { cx, cz } of selectedCells)
+      next[`${cx},${cz}`] = v
+    setCellColliderFlags(next)
+    renderer?.rebuild()
+  }
 
   return (
     <>
@@ -187,6 +206,20 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
                 …
               </button>
             </div>
+          </AccordionSection>
+        )}
+
+        {outputs && (
+          <AccordionSection title="Collision Flags">
+            <div style={{ color: '#7080b0', fontSize: 11, marginBottom: 4 }}>
+              Applies to all {selectedCells.length} selected cells (shown from first cell)
+            </div>
+            <ColliderFlagsEditor
+              value={colliderValue}
+              onChange={writeAllColliderFlags}
+              customFlagNames={customFlagNames}
+              onCustomFlagNamesChange={setCustomFlagNames}
+            />
           </AccordionSection>
         )}
 

@@ -3,7 +3,12 @@ import Modal from './Modal'
 import AccordionSection from './AccordionSection'
 import OverlayPaintModal from './OverlayPaintModal'
 import SkirtPaintModal from './SkirtPaintModal'
+import ColliderFlagsEditor from './ColliderFlagsEditor'
+import DecorationEditor from './DecorationEditor'
 import { useData } from '../DataContext'
+import type { DecorationPlacement } from '../DataContext'
+import { createDecoration } from 'atomic-core'
+import type { SpriteMap } from 'atomic-core'
 
 function readR8(tex: { image: { data: ArrayLike<number> } }, width: number, cx: number, cz: number): number {
   return tex.image.data[cz * width + cx] ?? 0
@@ -58,7 +63,7 @@ interface Props {
 }
 
 export default function CellDetailsModal({ onClose }: Props) {
-  const { selectedCell, game, atlasConfig, cellPaints, cellSkirts, cellHeights, setCellHeights, renderer } = useData()
+  const { selectedCell, game, atlasConfig, cellPaints, cellSkirts, cellHeights, setCellHeights, cellColliderFlags, setCellColliderFlags, customFlagNames, setCustomFlagNames, cellDecorations, setCellDecorations, renderer } = useData()
   const [paintOpen, setPaintOpen] = useState(false)
   const [skirtOpen, setSkirtOpen] = useState(false)
 
@@ -138,6 +143,67 @@ export default function CellDetailsModal({ onClose }: Props) {
   const floorSkirtLayers = skirtTarget.floor ?? []
   const ceilSkirtLayers = skirtTarget.ceil ?? []
 
+  const texCollider = outputs?.textures.colliderFlags as { image: { data: Uint8Array } } | undefined
+  const colliderValue: number = texCollider?.image.data
+    ? (texCollider.image.data[cz * width + cx] ?? 0)
+    : (cellColliderFlags[key] ?? 0)
+
+  function writeColliderFlags(v: number) {
+    if (texCollider?.image.data) {
+      texCollider.image.data[cz * width + cx] = v
+    }
+    setCellColliderFlags({ ...cellColliderFlags, [key]: v })
+    renderer?.rebuild()
+  }
+
+  function syncDecorations(decs: DecorationPlacement[]) {
+    const prev = cellDecorations[key] ?? []
+    if (game) {
+      for (const d of prev) {
+        if (d._entityId) game.dungeon.decorations.remove(d._entityId)
+      }
+    }
+    const synced = decs.map(d => {
+      if (!game || !d.sprite) return { ...d, _entityId: undefined }
+
+      let spriteMap: SpriteMap | undefined
+      if (atlasConfig) {
+        const packedSprite = atlasConfig.packed.getByName(d.sprite)
+        if (packedSprite) {
+          const atlasW = atlasConfig.packed.texture.width
+          const atlasH = atlasConfig.packed.texture.height
+          spriteMap = {
+            frameSize: {
+              w: Math.round(packedSprite.uvW * atlasW),
+              h: Math.round(packedSprite.uvH * atlasH),
+            },
+            layers: [{ tile: d.sprite }],
+          }
+        }
+      }
+
+      const entity = createDecoration({
+        type: d.type || 'decoration',
+        sprite: d.sprite,
+        x: d.x,
+        z: d.z,
+        yaw: d.yaw,
+        scale: d.scale,
+        blocksMove: d.blocksMove,
+        spriteMap,
+      })
+      entity.alive = true
+      game.dungeon.decorations.add(entity)
+      return { ...d, _entityId: entity.id }
+    })
+
+    if (game && renderer) {
+      renderer.setEntities(game.dungeon.decorations.list)
+    }
+    setCellDecorations({ ...cellDecorations, [key]: synced })
+    renderer?.rebuild()
+  }
+
   return (
     <>
       <Modal
@@ -171,6 +237,15 @@ export default function CellDetailsModal({ onClose }: Props) {
           <Row label="Distance to wall" value={distToWall ?? '—'} />
           <Row label="Hazard" value={hazard ?? '—'} />
           <Row label="Temperature" value={temperature != null ? `${temperature} / 255` : '—'} />
+        </AccordionSection>}
+
+        {outputs && <AccordionSection title="Collision Flags">
+          <ColliderFlagsEditor
+            value={colliderValue}
+            onChange={writeColliderFlags}
+            customFlagNames={customFlagNames}
+            onCustomFlagNamesChange={setCustomFlagNames}
+          />
         </AccordionSection>}
 
         {outputs && <AccordionSection title="Floor Layer">
@@ -266,6 +341,15 @@ export default function CellDetailsModal({ onClose }: Props) {
             </button>
           </div>
         </AccordionSection>}
+
+        <AccordionSection title={`Decorations${(cellDecorations[key]?.length ?? 0) > 0 ? ` (${cellDecorations[key].length})` : ''}`}>
+          <DecorationEditor
+            cx={cx}
+            cz={cz}
+            decorations={cellDecorations[key] ?? []}
+            onChange={syncDecorations}
+          />
+        </AccordionSection>
 
         {!outputs && (
           <div style={{ color: '#7080b0', fontStyle: 'italic' }}>

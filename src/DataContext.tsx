@@ -25,10 +25,29 @@ import {
 
 export type { SurfacePaintTarget };
 
+/** Mirrors atomic-core's ObjectPlacement — a static decoration placed in a cell. */
+export interface DecorationPlacement {
+  x: number
+  z: number
+  type: string
+  sprite: string
+  offsetX?: number
+  offsetZ?: number
+  offsetY?: number
+  yaw?: number
+  scale?: number
+  blocksMove?: boolean
+  /** Runtime id of the live DecorationEntity in game.dungeon.decorations, if synced. */
+  _entityId?: string
+}
+
 export interface CellSkirtTarget {
   floor?: string[]
   ceil?: string[]
 }
+
+/** Maps bit values (8, 16, 32, 64, 128) to user-defined names. */
+export type CustomFlagNames = Record<number, string>
 
 export type PaintTool = 'pencil' | 'rect' | 'filledRect' | 'circle' | 'filledCircle' | 'floodFill'
 
@@ -117,6 +136,15 @@ interface DataContextValue {
   setSelectedCells: (cells: CellInfo[]) => void;
   cellSkirts: Record<string, CellSkirtTarget>;
   setCellSkirts: (skirts: Record<string, CellSkirtTarget>) => void;
+  /** Per-cell collider flag overrides, keyed by "cx,cz". Stores raw R8 byte. Fallback when texture absent. */
+  cellColliderFlags: Record<string, number>;
+  setCellColliderFlags: (flags: Record<string, number>) => void;
+  /** User-defined names for custom flag bits (8, 16, 32, 64, 128). */
+  customFlagNames: Record<number, string>;
+  setCustomFlagNames: (names: Record<number, string>) => void;
+  /** Per-cell decoration placements, keyed by "cx,cz". */
+  cellDecorations: Record<string, DecorationPlacement[]>;
+  setCellDecorations: (decorations: Record<string, DecorationPlacement[]>) => void;
 }
 
 const DataContext = createContext<DataContextValue>({
@@ -145,6 +173,12 @@ const DataContext = createContext<DataContextValue>({
   setSelectedCells: () => {},
   cellSkirts: {},
   setCellSkirts: () => {},
+  cellColliderFlags: {},
+  setCellColliderFlags: () => {},
+  customFlagNames: {},
+  setCustomFlagNames: () => {},
+  cellDecorations: {},
+  setCellDecorations: () => {},
 });
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -167,6 +201,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [activeTool, setActiveTool] = useState<PaintTool | null>(null);
   const [selectedCells, setSelectedCells] = useState<CellInfo[]>([]);
   const [cellSkirts, setCellSkirts] = useState<Record<string, CellSkirtTarget>>({});
+  const [cellColliderFlags, setCellColliderFlags] = useState<Record<string, number>>({});
+  const [customFlagNames, setCustomFlagNames] = useState<Record<number, string>>({});
+  const [cellDecorations, setCellDecorations] = useState<Record<string, DecorationPlacement[]>>({});
 
   useEffect(() => {
     if (!atlasConfig) { setPackedAtlasUrl(null); return; }
@@ -291,6 +328,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setSelectedCells,
         cellSkirts,
         setCellSkirts,
+        cellColliderFlags,
+        setCellColliderFlags,
+        customFlagNames,
+        setCustomFlagNames,
+        cellDecorations,
+        setCellDecorations,
       }}
     >
       {children}
