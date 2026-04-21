@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import Modal from './Modal'
+import AccordionSection from './AccordionSection'
 import OverlayPaintModal from './OverlayPaintModal'
+import SkirtPaintModal from './SkirtPaintModal'
 import { useData } from '../DataContext'
 
 const OFFSET_NEUTRAL = 128
@@ -44,16 +46,6 @@ function SliderRow({ label, steps, isPit, onChange, onPitToggle }: SliderRowProp
   )
 }
 
-interface SectionProps { title: string; children: React.ReactNode }
-function Section({ title, children }: SectionProps) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ color: '#5870d0', fontWeight: 'bold', marginBottom: 2, borderBottom: '1px solid #203060', paddingBottom: 4 }}>{title}</div>
-      {children}
-    </div>
-  )
-}
-
 interface Props {
   onClose: () => void
 }
@@ -64,6 +56,7 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
   const [ceilSteps, setCeilSteps] = useState(0)
   const [floorIsPit, setFloorIsPit] = useState(false)
   const [paintOpen, setPaintOpen] = useState(false)
+  const [skirtOpen, setSkirtOpen] = useState(false)
 
   if (selectedCells.length === 0) return null
 
@@ -100,7 +93,6 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
     renderer?.rebuild()
   }
 
-  // Bounding box of selection for display
   const minX = Math.min(...selectedCells.map(c => c.cx))
   const maxX = Math.max(...selectedCells.map(c => c.cx))
   const minZ = Math.min(...selectedCells.map(c => c.cz))
@@ -125,7 +117,7 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
           zIndex: 50,
         }}
       >
-        <Section title="Selection">
+        <AccordionSection title="Selection">
           <div style={{ display: 'flex', gap: 12 }}>
             <span style={{ color: '#7080b0', minWidth: 120 }}>Cell count</span>
             <span style={{ color: '#e0e8ff' }}>{selectedCells.length}</span>
@@ -138,10 +130,10 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
             <span style={{ color: '#7080b0', minWidth: 120 }}>Z range</span>
             <span style={{ color: '#e0e8ff' }}>{minZ} – {maxZ}</span>
           </div>
-        </Section>
+        </AccordionSection>
 
         {outputs && (texFloor || texCeil) && (
-          <Section title={`Height Offsets (floor: ${floorIsPit ? 'pit' : floorSteps > 0 ? `+${floorSteps}` : floorSteps}, ceil: ${ceilSteps > 0 ? `+${ceilSteps}` : ceilSteps})`}>
+          <AccordionSection title={`Height Offsets (floor: ${floorIsPit ? 'pit' : floorSteps > 0 ? `+${floorSteps}` : floorSteps}, ceil: ${ceilSteps > 0 ? `+${ceilSteps}` : ceilSteps})`}>
             <SliderRow
               label="Floor offset"
               steps={floorSteps}
@@ -158,11 +150,11 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
               steps={ceilSteps}
               onChange={s => { setCeilSteps(s); writeAllCeil(OFFSET_NEUTRAL - s) }}
             />
-          </Section>
+          </AccordionSection>
         )}
 
         {outputs && (
-          <Section title="Surface Layers (all cells)">
+          <AccordionSection title="Surface Layers">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ color: '#7080b0', flex: 1, fontSize: 12 }}>
                 Apply paint layers to all {selectedCells.length} selected cells
@@ -179,7 +171,23 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
                 …
               </button>
             </div>
-          </Section>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <span style={{ color: '#7080b0', flex: 1, fontSize: 12 }}>
+                Apply skirt tiles to all {selectedCells.length} selected cells
+              </span>
+              <button
+                onClick={() => setSkirtOpen(true)}
+                title="Edit skirt tiles for all selected cells"
+                style={{
+                  background: 'none', border: '1px solid #304060', borderRadius: 3,
+                  color: '#8090c0', cursor: 'pointer', fontSize: 12,
+                  padding: '1px 7px', lineHeight: 1.4, flexShrink: 0,
+                }}
+              >
+                …
+              </button>
+            </div>
+          </AccordionSection>
         )}
 
         {!outputs && (
@@ -195,6 +203,14 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
           cz={firstCell.cz}
           cells={selectedCells}
           onClose={() => setPaintOpen(false)}
+        />
+      )}
+      {skirtOpen && firstCell && (
+        <SkirtPaintModal
+          cx={firstCell.cx}
+          cz={firstCell.cz}
+          cells={selectedCells}
+          onClose={() => setSkirtOpen(false)}
         />
       )}
     </>

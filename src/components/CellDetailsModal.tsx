@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import Modal from './Modal'
+import AccordionSection from './AccordionSection'
 import OverlayPaintModal from './OverlayPaintModal'
+import SkirtPaintModal from './SkirtPaintModal'
 import { useData } from '../DataContext'
 
 function readR8(tex: { image: { data: ArrayLike<number> } }, width: number, cx: number, cz: number): number {
@@ -13,16 +15,6 @@ function Row({ label, value }: RowProps) {
     <div style={{ display: 'flex', gap: 12 }}>
       <span style={{ color: '#7080b0', minWidth: 160 }}>{label}</span>
       <span style={{ color: '#e0e8ff' }}>{value}</span>
-    </div>
-  )
-}
-
-interface SectionProps { title: string; children: React.ReactNode }
-function Section({ title, children }: SectionProps) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ color: '#5870d0', fontWeight: 'bold', marginBottom: 2, borderBottom: '1px solid #203060', paddingBottom: 4 }}>{title}</div>
-      {children}
     </div>
   )
 }
@@ -66,8 +58,9 @@ interface Props {
 }
 
 export default function CellDetailsModal({ onClose }: Props) {
-  const { selectedCell, game, atlasConfig, cellPaints, cellHeights, setCellHeights, renderer } = useData()
+  const { selectedCell, game, atlasConfig, cellPaints, cellSkirts, cellHeights, setCellHeights, renderer } = useData()
   const [paintOpen, setPaintOpen] = useState(false)
+  const [skirtOpen, setSkirtOpen] = useState(false)
 
   if (!selectedCell) return null
 
@@ -108,6 +101,7 @@ export default function CellDetailsModal({ onClose }: Props) {
   const ceilTileId = ceilType != null && atlasConfig ? atlasConfig.resolver(atlasConfig.ceilTile) : null
 
   const paintTarget = cellPaints[`${cx},${cz}`] ?? {}
+  const skirtTarget = cellSkirts[`${cx},${cz}`] ?? {}
   const key = `${cx},${cz}`
 
   const texFloor = outputs?.textures.floorHeightOffset
@@ -141,6 +135,9 @@ export default function CellDetailsModal({ onClose }: Props) {
     renderer?.rebuild()
   }
 
+  const floorSkirtLayers = skirtTarget.floor ?? []
+  const ceilSkirtLayers = skirtTarget.ceil ?? []
+
   return (
     <>
       <Modal
@@ -158,7 +155,7 @@ export default function CellDetailsModal({ onClose }: Props) {
           zIndex: 50,
         }}
       >
-        <Section title="Position">
+        <AccordionSection title="Position">
           <Row label="Column (cx)" value={cx} />
           <Row label="Row (cz)" value={cz} />
           <Row label="Region ID" value={regionId || '0 (unassigned)'} />
@@ -167,34 +164,34 @@ export default function CellDetailsModal({ onClose }: Props) {
             <Row label="Room origin" value={`(${room.rect.x}, ${room.rect.y})`} />
             <Row label="Room size" value={`${room.rect.w} × ${room.rect.h}`} />
           </>}
-        </Section>
+        </AccordionSection>
 
-        {outputs && <Section title="Cell Flags">
+        {outputs && <AccordionSection title="Cell Flags">
           <Row label="Solid (wall)" value={isSolid ? 'yes' : 'no'} />
           <Row label="Distance to wall" value={distToWall ?? '—'} />
           <Row label="Hazard" value={hazard ?? '—'} />
           <Row label="Temperature" value={temperature != null ? `${temperature} / 255` : '—'} />
-        </Section>}
+        </AccordionSection>}
 
-        {outputs && <Section title="Floor Layer">
+        {outputs && <AccordionSection title="Floor Layer">
           <Row label="Floor type index" value={floorType ?? '—'} />
           <Row label="Default floor tile" value={floorTileName} />
           {floorTileId != null && <Row label="Atlas tile ID" value={floorTileId} />}
-        </Section>}
+        </AccordionSection>}
 
-        {outputs && <Section title="Wall Layer">
+        {outputs && <AccordionSection title="Wall Layer">
           <Row label="Wall type index" value={wallType ?? '—'} />
           <Row label="Default wall tile" value={wallTileName} />
           {wallTileId != null && <Row label="Atlas tile ID" value={wallTileId} />}
-        </Section>}
+        </AccordionSection>}
 
-        {outputs && <Section title="Ceiling Layer">
+        {outputs && <AccordionSection title="Ceiling Layer">
           <Row label="Ceiling type index" value={ceilType ?? '—'} />
           <Row label="Default ceiling tile" value={ceilTileName} />
           {ceilTileId != null && <Row label="Atlas tile ID" value={ceilTileId} />}
-        </Section>}
+        </AccordionSection>}
 
-        {atlasConfig && (texFloor || texCeil) && <Section title={`Height Offsets (floor: ${floorIsPit ? 'pit' : floorSteps > 0 ? `+${floorSteps}` : floorSteps}, ceil: ${ceilSteps > 0 ? `+${ceilSteps}` : ceilSteps})`}>
+        {atlasConfig && (texFloor || texCeil) && <AccordionSection title={`Height Offsets (floor: ${floorIsPit ? 'pit' : floorSteps > 0 ? `+${floorSteps}` : floorSteps}, ceil: ${ceilSteps > 0 ? `+${ceilSteps}` : ceilSteps})`}>
           <SliderRow
             label="Floor offset"
             steps={floorSteps}
@@ -210,9 +207,9 @@ export default function CellDetailsModal({ onClose }: Props) {
           {!texFloor && !texCeil && (
             <span style={{ color: '#506080', fontSize: 11 }}>stored locally — generate dungeon to apply</span>
           )}
-        </Section>}
+        </AccordionSection>}
 
-        {outputs && <Section title="Surface Layers">
+        {outputs && <AccordionSection title="Surface Layers">
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
               {(['floor', 'wall', 'ceil'] as const).map(f => {
@@ -241,7 +238,34 @@ export default function CellDetailsModal({ onClose }: Props) {
               …
             </button>
           </div>
-        </Section>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <span style={{ color: '#7080b0', minWidth: 72, fontSize: 12 }}>floor skirt</span>
+                <span style={{ color: floorSkirtLayers.length ? '#e0e8ff' : '#506080', fontSize: 12 }}>
+                  {floorSkirtLayers.length ? floorSkirtLayers.join(', ') : 'default'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <span style={{ color: '#7080b0', minWidth: 72, fontSize: 12 }}>ceil skirt</span>
+                <span style={{ color: ceilSkirtLayers.length ? '#e0e8ff' : '#506080', fontSize: 12 }}>
+                  {ceilSkirtLayers.length ? ceilSkirtLayers.join(', ') : 'default'}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setSkirtOpen(true)}
+              title="Edit skirt tiles"
+              style={{
+                background: 'none', border: '1px solid #304060', borderRadius: 3,
+                color: '#8090c0', cursor: 'pointer', fontSize: 12,
+                padding: '1px 7px', lineHeight: 1.4, flexShrink: 0,
+              }}
+            >
+              …
+            </button>
+          </div>
+        </AccordionSection>}
 
         {!outputs && (
           <div style={{ color: '#7080b0', fontStyle: 'italic' }}>
@@ -253,6 +277,10 @@ export default function CellDetailsModal({ onClose }: Props) {
       {paintOpen && (
         <OverlayPaintModal cx={cx} cz={cz} onClose={() => setPaintOpen(false)} />
       )}
+      {skirtOpen && (
+        <SkirtPaintModal cx={cx} cz={cz} onClose={() => setSkirtOpen(false)} />
+      )}
     </>
   )
 }
+

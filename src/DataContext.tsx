@@ -25,6 +25,11 @@ import {
 
 export type { SurfacePaintTarget };
 
+export interface CellSkirtTarget {
+  floor?: string[]
+  ceil?: string[]
+}
+
 export type PaintTool = 'pencil' | 'rect' | 'filledRect' | 'circle' | 'filledCircle' | 'floodFill'
 
 export interface RendererSettings {
@@ -110,6 +115,8 @@ interface DataContextValue {
   setActiveTool: (tool: PaintTool | null) => void;
   selectedCells: CellInfo[];
   setSelectedCells: (cells: CellInfo[]) => void;
+  cellSkirts: Record<string, CellSkirtTarget>;
+  setCellSkirts: (skirts: Record<string, CellSkirtTarget>) => void;
 }
 
 const DataContext = createContext<DataContextValue>({
@@ -136,6 +143,8 @@ const DataContext = createContext<DataContextValue>({
   setActiveTool: () => {},
   selectedCells: [],
   setSelectedCells: () => {},
+  cellSkirts: {},
+  setCellSkirts: () => {},
 });
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -157,6 +166,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
   const [activeTool, setActiveTool] = useState<PaintTool | null>(null);
   const [selectedCells, setSelectedCells] = useState<CellInfo[]>([]);
+  const [cellSkirts, setCellSkirts] = useState<Record<string, CellSkirtTarget>>({});
 
   useEffect(() => {
     if (!atlasConfig) { setPackedAtlasUrl(null); return; }
@@ -279,6 +289,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setActiveTool,
         selectedCells,
         setSelectedCells,
+        cellSkirts,
+        setCellSkirts,
       }}
     >
       {children}
