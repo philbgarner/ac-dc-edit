@@ -79,7 +79,17 @@ export default function DungeonView() {
     setSelectedCell, setHoveredCell,
     setRenderer, rendererSettings,
     activeTool, selectedCells, setSelectedCells,
+    setGeneratorOptions, importRequest,
+    setCellHeights, setCellPaints,
   } = useData()
+
+  const DEFAULT_GENERATOR_OPTIONS = {
+    width: 40,
+    height: 40,
+    seed: 0xdeadbeef,
+    minRoomSize: 5,
+    maxRoomSize: 11,
+  }
 
   const viewportRef = useRef<HTMLDivElement>(null)
   const hoverHandleRef = useRef<LayerHandle | null>(null)
@@ -119,23 +129,61 @@ export default function DungeonView() {
     refreshSelectHighlight()
   }, [activeTool, refreshSelectHighlight])
 
-  // Effect 1: create game, generate dungeon, attach keybindings — runs once
+  // Effect 1: create game, generate dungeon, attach keybindings — reruns on import
   useEffect(() => {
     const el = viewportRef.current
     if (!el) return
 
+    const dungeonOptions = importRequest?.options ?? DEFAULT_GENERATOR_OPTIONS
+    setGeneratorOptions(dungeonOptions)
+
     const g = createGame(document.body, {
-      dungeon: {
-        width: 40,
-        height: 40,
-        seed: 0xdeadbeef,
-        minRoomSize: 5,
-        maxRoomSize: 11,
-      },
+      dungeon: dungeonOptions,
       player: { hp: 30, maxHp: 30, attack: 5, defense: 2, speed: 5 },
     })
 
     g.generate()
+
+    const imported = importRequest?.importResult
+    if (imported) {
+      const outputs = g.dungeon.outputs!
+      const { width: W, height: H } = outputs
+      const src = imported.dungeon.textures
+
+      // restore height textures
+      const floorDst = outputs.textures.floorHeightOffset
+      const ceilDst = outputs.textures.ceilingHeightOffset
+      const floorSrc = src.floorHeightOffset?.image.data as Uint8Array | undefined
+      const ceilSrc = src.ceilingHeightOffset?.image.data as Uint8Array | undefined
+      if (floorDst && floorSrc) { (floorDst.image.data as Uint8Array).set(floorSrc); floorDst.needsUpdate = true }
+      if (ceilDst && ceilSrc) { (ceilDst.image.data as Uint8Array).set(ceilSrc); ceilDst.needsUpdate = true }
+
+      // rebuild cellHeights for the editor UI
+      const heights: Record<string, { floor: number; ceil: number }> = {}
+      for (let cz = 0; cz < H; cz++) {
+        for (let cx = 0; cx < W; cx++) {
+          const f = floorSrc ? floorSrc[cz * W + cx] : 128
+          const c = ceilSrc ? ceilSrc[cz * W + cx] : 128
+          if (f !== 128 || c !== 128) heights[`${cx},${cz}`] = { floor: f, ceil: c }
+        }
+      }
+      setCellHeights(heights)
+
+      // restore paint map
+      const pm = imported.paintMap ?? {}
+      const paints: Record<string, import('../DataContext').SurfacePaintTarget> = {}
+      for (const [key, target] of Object.entries(pm)) {
+        const [x, z] = key.split(',').map(Number)
+        g.dungeon.paint(x, z, target)
+        paints[key] = target
+      }
+      setCellPaints(paints)
+    } else if (importRequest) {
+      // new map — clear any stale editor state
+      setCellHeights({})
+      setCellPaints({})
+    }
+
     setGame(g)
 
     attachKeybindings(g, {
@@ -172,7 +220,9 @@ export default function DungeonView() {
         if (a) g.turns.commit(a)
       },
     })
-  }, [])
+
+    return () => { g.destroy() }
+  }, [importRequest?.seq])
 
   // Effect 2: create renderer when game is ready; recreate when atlas or settings change
   useEffect(() => {

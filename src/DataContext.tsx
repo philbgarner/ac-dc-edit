@@ -13,7 +13,10 @@ import type {
   TextureAtlasJson,
   DungeonRenderer,
   SurfacePaintTarget,
+  ImportResult,
 } from "atomic-core";
+
+export type GeneratorOptions = ImportResult["generatorOptions"];
 import {
   loadSettings,
   saveSettings,
@@ -145,6 +148,10 @@ interface DataContextValue {
   /** Per-cell decoration placements, keyed by "cx,cz". */
   cellDecorations: Record<string, DecorationPlacement[]>;
   setCellDecorations: (decorations: Record<string, DecorationPlacement[]>) => void;
+  generatorOptions: GeneratorOptions | null;
+  setGeneratorOptions: (opts: GeneratorOptions | null) => void;
+  importRequest: { options: GeneratorOptions; seq: number; importResult?: ImportResult } | null;
+  setImportRequest: (req: { options: GeneratorOptions; seq: number; importResult?: ImportResult } | null) => void;
 }
 
 const DataContext = createContext<DataContextValue>({
@@ -179,6 +186,10 @@ const DataContext = createContext<DataContextValue>({
   setCustomFlagNames: () => {},
   cellDecorations: {},
   setCellDecorations: () => {},
+  generatorOptions: null,
+  setGeneratorOptions: () => {},
+  importRequest: null,
+  setImportRequest: () => {},
 });
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -204,6 +215,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [cellColliderFlags, setCellColliderFlags] = useState<Record<string, number>>({});
   const [customFlagNames, setCustomFlagNames] = useState<Record<number, string>>({});
   const [cellDecorations, setCellDecorations] = useState<Record<string, DecorationPlacement[]>>({});
+  const [generatorOptions, setGeneratorOptions] = useState<GeneratorOptions | null>(null);
+  const [importRequest, setImportRequest] = useState<{ options: GeneratorOptions; seq: number; importResult?: ImportResult } | null>(null);
 
   useEffect(() => {
     if (!atlasConfig) { setPackedAtlasUrl(null); return; }
@@ -334,6 +347,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setCustomFlagNames,
         cellDecorations,
         setCellDecorations,
+        generatorOptions,
+        setGeneratorOptions,
+        importRequest,
+        setImportRequest,
       }}
     >
       {children}

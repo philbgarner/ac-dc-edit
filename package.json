@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "atomic-core": "https://github.com/philbgarner/atomic-core/tarball/v0.7.4",
+    "atomic-core": "https://github.com/philbgarner/atomic-core/tarball/v0.7.6",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },
