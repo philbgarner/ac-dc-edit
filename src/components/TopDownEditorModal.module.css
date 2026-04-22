@@ -1,0 +1,269 @@
+.modal {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    left: 360px;
+    z-index: 20;
+    background: rgba(8, 12, 24, 0.97);
+    border: 1px solid #304080;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    font-family: monospace;
+    color: #c8d0f8;
+    font-size: 12px;
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 12px;
+    border-bottom: 1px solid #1e2e45;
+    flex-shrink: 0;
+}
+
+.headerTitle {
+    color: #8090c0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    color: #506080;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0;
+    line-height: 1;
+}
+
+.body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.sidebar {
+    width: 196px;
+    flex-shrink: 0;
+    border-right: 1px solid #1e2e45;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+.sectionLabel {
+    color: #5870d0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.divider {
+    border-top: 1px solid #1e2e45;
+    margin: 2px 0;
+}
+
+.fieldGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.layerSelect {
+    background: #0d1b2a;
+    border: 1px solid #1e3050;
+    border-radius: 3px;
+    color: #e0e8ff;
+    font-size: 12px;
+    padding: 3px 6px;
+}
+
+.radioGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.checkLabel {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.accentInput {
+    accent-color: #5870d0;
+}
+
+.radioText {
+    font-size: 11px;
+}
+
+.flagModeRow {
+    display: flex;
+    gap: 4px;
+}
+
+.flagModeBtn {
+    flex: 1;
+    padding: 2px 0;
+    cursor: pointer;
+    font-size: 11px;
+    background: #0d1020;
+    border: 1px solid #203060;
+    border-radius: 3px;
+    color: #8090c0;
+}
+
+.flagModeBtnActive {
+    background: #1a3080;
+    border-color: #4060c0;
+    color: #d0e0ff;
+}
+
+.flagCheckFlex {
+    font-size: 11px;
+    flex: 1;
+}
+
+.flagHex {
+    color: #506080;
+    font-size: 10px;
+}
+
+.colorKey {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-left: 4px;
+    margin-top: 2px;
+}
+
+.colorKeyRow {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.colorSwatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 1px;
+    flex-shrink: 0;
+    border: 1px solid #304060;
+    display: inline-block;
+}
+
+.colorLabel {
+    font-size: 10px;
+    color: #7080b0;
+}
+
+.toolsHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.clearBtn {
+    background: none;
+    border: none;
+    color: #506080;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 0;
+    line-height: 1;
+}
+
+.toolsGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 3px;
+}
+
+.toolBtn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 5px 2px;
+    background: #0d1020;
+    border: 1px solid #203060;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #8090c0;
+}
+
+.toolBtnActive {
+    background: #1a3080;
+    border-color: #4060c0;
+    color: #d0e0ff;
+}
+
+.toolBtnIcon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.toolBtnLabel {
+    font-size: 9px;
+    line-height: 1;
+}
+
+.toolHint {
+    color: #506080;
+    font-size: 10px;
+    text-align: center;
+}
+
+.selectionSummary {
+    color: #7080b0;
+    font-size: 11px;
+}
+
+.applyBtn {
+    background: #0d1a30;
+    border: 1px solid #203050;
+    border-radius: 3px;
+    color: #506080;
+    padding: 5px 10px;
+    cursor: default;
+    font-size: 12px;
+    margin-top: auto;
+}
+
+.applyBtnEnabled {
+    background: #1a3060;
+    border-color: #4060c0;
+    color: #c8d0f8;
+    cursor: pointer;
+}
+
+.canvasArea {
+    flex: 1;
+    position: relative;
+}
+
+.emptyOverlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #506080;
+}
+
+.canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
