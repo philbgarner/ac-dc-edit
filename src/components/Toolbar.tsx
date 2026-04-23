@@ -39,7 +39,11 @@ export default function Toolbar({ onOpenMapEditor }: Props) {
     reader.onload = (ev) => {
       try {
         const result = dungeonMapFromJson(ev.target?.result as string);
-        setImportRequest({ options: result.generatorOptions, seq: Date.now(), importResult: result });
+        setImportRequest({
+          options: result.generatorOptions,
+          seq: Date.now(),
+          importResult: result,
+        });
       } catch {
         alert("Failed to import dungeon map. The file may be invalid.");
       }
@@ -70,9 +74,8 @@ export default function Toolbar({ onOpenMapEditor }: Props) {
       <div
         style={{
           position: "fixed",
-          bottom: 16,
-          left: "50%",
-          transform: "translateX(-50%)",
+          bottom: "1rem",
+          right: "1rem",
           display: "flex",
           alignItems: "center",
           gap: 12,
@@ -90,8 +93,6 @@ export default function Toolbar({ onOpenMapEditor }: Props) {
         <span>WASD/Arrows: move</span>
         <span style={{ opacity: 0.4 }}>|</span>
         <span>Q/E: turn</span>
-        <span style={{ opacity: 0.4 }}>|</span>
-        <span>Space: wait</span>
         <span style={{ opacity: 0.4 }}>|</span>
         <button onClick={() => setShowNewMap(true)} style={btnStyle}>
           New Map

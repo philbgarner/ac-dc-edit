@@ -107,6 +107,33 @@ function findRegionId(
   return undefined;
 }
 
+function recomputeDistToWall(solidData: Uint8Array, W: number, H: number): Uint8Array {
+  const INF = 65535
+  const dist = new Uint16Array(W * H).fill(INF)
+  const q: number[] = []
+  for (let i = 0; i < W * H; i++) {
+    if (solidData[i] !== 0) { dist[i] = 0; q.push(i) }
+  }
+  let head = 0
+  while (head < q.length) {
+    const i = q[head++]
+    const x = i % W, y = (i / W) | 0
+    const next = dist[i] + 1
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]] as [number,number][]) {
+      const nx = x + dx, ny = y + dy
+      if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
+      const ni = ny * W + nx
+      if (next < dist[ni]) { dist[ni] = next; q.push(ni) }
+    }
+  }
+  const out = new Uint8Array(W * H)
+  for (let i = 0; i < W * H; i++) {
+    const d = dist[i]
+    out[i] = d === INF ? 255 : d > 255 ? 255 : d
+  }
+  return out
+}
+
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const TOOLS: { id: PaintTool; icon: string; label: string; title: string }[] = [
@@ -466,6 +493,11 @@ export default function TopDownEditorModal({ onClose }: Props) {
       if (solidTex?.image?.data) {
         for (const { cx, cz } of cells) {
           solidTex.image.data[cz * mapWidth + cx] = solidValue;
+        }
+        const distTex = (outputs.textures as unknown as { distanceToWall?: { image?: { data?: Uint8Array } } }).distanceToWall;
+        if (distTex?.image?.data) {
+          const newDist = recomputeDistToWall(solidTex.image.data, mapWidth, mapHeight);
+          distTex.image.data.set(newDist);
         }
       }
     } else {
