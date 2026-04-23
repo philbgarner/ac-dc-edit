@@ -1,10 +1,10 @@
 .modal {
     position: fixed;
     top: 8px;
-    right: 8px;
+    right: 1rem;
     bottom: 8px;
-    left: 360px;
     z-index: 20;
+    width: calc(100vw - 3rem - 28rem);
     background: rgba(8, 12, 24, 0.97);
     border: 1px solid #304080;
     border-radius: 6px;

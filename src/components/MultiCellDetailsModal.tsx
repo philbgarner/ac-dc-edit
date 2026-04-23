@@ -1,20 +1,20 @@
-import { useState } from 'react'
-import Modal from './Modal'
-import AccordionSection from './AccordionSection'
-import OverlayPaintModal from './OverlayPaintModal'
-import SkirtPaintModal from './SkirtPaintModal'
-import ColliderFlagsEditor from './ColliderFlagsEditor'
-import { useData } from '../DataContext'
-import styles from './CellDetailsModal.module.css'
+import { useState } from "react";
+import Modal from "./Modal";
+import AccordionSection from "./AccordionSection";
+import OverlayPaintModal from "./OverlayPaintModal";
+import SkirtPaintModal from "./SkirtPaintModal";
+import ColliderFlagsEditor from "./ColliderFlagsEditor";
+import { useData } from "../DataContext";
+import styles from "./CellDetailsModal.module.css";
 
-const OFFSET_NEUTRAL = 128
+const OFFSET_NEUTRAL = 128;
 
 type RoomEntry = {
-  id?: number
-  type: string
-  rect: { x: number; y: number; w: number; h: number }
-  connections?: number[]
-}
+  id?: number;
+  type: string;
+  rect: { x: number; y: number; w: number; h: number };
+  connections?: number[];
+};
 
 function computeRegionRect(
   data: Uint8Array,
@@ -22,185 +22,237 @@ function computeRegionRect(
   H: number,
   id: number,
 ): { x: number; y: number; w: number; h: number } | null {
-  let minX = W, maxX = -1, minZ = H, maxZ = -1
+  let minX = W,
+    maxX = -1,
+    minZ = H,
+    maxZ = -1;
   for (let z = 0; z < H; z++) {
     for (let x = 0; x < W; x++) {
       if (data[z * W + x] === id) {
-        if (x < minX) minX = x
-        if (x > maxX) maxX = x
-        if (z < minZ) minZ = z
-        if (z > maxZ) maxZ = z
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (z < minZ) minZ = z;
+        if (z > maxZ) maxZ = z;
       }
     }
   }
-  if (maxX < 0) return null
-  return { x: minX, y: minZ, w: maxX - minX + 1, h: maxZ - minZ + 1 }
+  if (maxX < 0) return null;
+  return { x: minX, y: minZ, w: maxX - minX + 1, h: maxZ - minZ + 1 };
 }
-const OFFSET_STEP_MIN = -127, OFFSET_STEP_MAX = 127
+const OFFSET_STEP_MIN = -127,
+  OFFSET_STEP_MAX = 127;
 
 interface SliderRowProps {
-  label: string
-  steps: number
-  isPit?: boolean
-  isSky?: boolean
-  onChange: (steps: number) => void
-  onPitToggle?: () => void
-  onSkyToggle?: () => void
+  label: string;
+  steps: number;
+  isPit?: boolean;
+  isSky?: boolean;
+  onChange: (steps: number) => void;
+  onPitToggle?: () => void;
+  onSkyToggle?: () => void;
 }
 
-function SliderRow({ label, steps, isPit, isSky, onChange, onPitToggle, onSkyToggle }: SliderRowProps) {
+function SliderRow({
+  label,
+  steps,
+  isPit,
+  isSky,
+  onChange,
+  onPitToggle,
+  onSkyToggle,
+}: SliderRowProps) {
   return (
     <div className={styles.sliderRow}>
       <span className={styles.sliderLabel}>{label}</span>
       <input
-        type="range" min={OFFSET_STEP_MIN} max={OFFSET_STEP_MAX} step={1}
+        type="range"
+        min={OFFSET_STEP_MIN}
+        max={OFFSET_STEP_MAX}
+        step={1}
         value={isPit ? OFFSET_STEP_MIN : isSky ? OFFSET_STEP_MAX : steps}
         disabled={isPit || isSky}
-        onChange={e => onChange(Number(e.target.value))}
+        onChange={(e) => onChange(Number(e.target.value))}
         className={styles.slider}
       />
-      {isPit
-        ? <span className={styles.sliderValuePit}>pit</span>
-        : isSky
-          ? <span className={styles.sliderValuePit}>sky</span>
-          : <span className={styles.sliderValue}>{steps > 0 ? `+${steps}` : steps}</span>
-      }
+      {isPit ? (
+        <span className={styles.sliderValuePit}>pit</span>
+      ) : isSky ? (
+        <span className={styles.sliderValuePit}>sky</span>
+      ) : (
+        <span className={styles.sliderValue}>
+          {steps > 0 ? `+${steps}` : steps}
+        </span>
+      )}
       {onPitToggle && (
         <button
           onClick={onPitToggle}
-          title={isPit ? 'Remove pit' : 'Set as pit'}
+          title={isPit ? "Remove pit" : "Set as pit"}
           className={`${styles.pitBtn} ${isPit ? styles.pitBtnActive : styles.pitBtnInactive}`}
-        >pit</button>
+        >
+          pit
+        </button>
       )}
       {onSkyToggle && (
         <button
           onClick={onSkyToggle}
-          title={isSky ? 'Remove sky' : 'Set as sky'}
+          title={isSky ? "Remove sky" : "Set as sky"}
           className={`${styles.pitBtn} ${isSky ? styles.pitBtnActive : styles.pitBtnInactive}`}
-        >sky</button>
+        >
+          sky
+        </button>
       )}
     </div>
-  )
+  );
 }
 
 interface Props {
-  onClose: () => void
+  onClose: () => void;
 }
 
 export default function MultiCellDetailsModal({ onClose }: Props) {
-  const { selectedCells, setSelectedCells, game, cellHeights, setCellHeights, cellColliderFlags, setCellColliderFlags, customFlagNames, setCustomFlagNames, renderer } = useData()
-  const [floorSteps, setFloorSteps] = useState(0)
-  const [ceilSteps, setCeilSteps] = useState(0)
-  const [floorIsPit, setFloorIsPit] = useState(false)
-  const [ceilIsSky, setCeilIsSky] = useState(false)
-  const [paintOpen, setPaintOpen] = useState(false)
-  const [skirtOpen, setSkirtOpen] = useState(false)
+  const {
+    selectedCells,
+    setSelectedCells,
+    game,
+    cellHeights,
+    setCellHeights,
+    cellColliderFlags,
+    setCellColliderFlags,
+    customFlagNames,
+    setCustomFlagNames,
+    renderer,
+  } = useData();
+  const [floorSteps, setFloorSteps] = useState(0);
+  const [ceilSteps, setCeilSteps] = useState(0);
+  const [floorIsPit, setFloorIsPit] = useState(false);
+  const [ceilIsSky, setCeilIsSky] = useState(false);
+  const [paintOpen, setPaintOpen] = useState(false);
+  const [skirtOpen, setSkirtOpen] = useState(false);
 
-  if (selectedCells.length === 0) return null
+  if (selectedCells.length === 0) return null;
 
-  const outputs = game?.dungeon.outputs
-  const width = outputs?.width ?? 0
-  const texFloor = outputs?.textures.floorHeightOffset
-  const texCeil = outputs?.textures.ceilingHeightOffset
+  const outputs = game?.dungeon.outputs;
+  const width = outputs?.width ?? 0;
+  const texFloor = outputs?.textures.floorHeightOffset;
+  const texCeil = outputs?.textures.ceilingHeightOffset;
 
-  const bspOutputs = outputs as { rooms?: Map<number, RoomEntry>; fullRegionIds?: Uint8Array } | null
-  const roomsMap = bspOutputs?.rooms
-  const regionIds = roomsMap ? Array.from(roomsMap.keys()).sort((a, b) => a - b) : []
-  const texRegionData = (outputs?.textures as unknown as { regionId?: { image?: { data?: Uint8Array } } })?.regionId?.image?.data
+  const bspOutputs = outputs as {
+    rooms?: Map<number, RoomEntry>;
+    fullRegionIds?: Uint8Array;
+  } | null;
+  const roomsMap = bspOutputs?.rooms;
+  const regionIds = roomsMap
+    ? Array.from(roomsMap.keys()).sort((a, b) => a - b)
+    : [];
+  const texRegionData = (
+    outputs?.textures as unknown as {
+      regionId?: { image?: { data?: Uint8Array } };
+    }
+  )?.regionId?.image?.data;
 
-  const firstCell = selectedCells[0]
+  const firstCell = selectedCells[0];
   const commonRegionId: number = texRegionData
     ? (texRegionData[firstCell.cz * width + firstCell.cx] ?? 0)
-    : (firstCell.regionId ?? 0)
-  const allSameRegion = selectedCells.every(c =>
-    (texRegionData ? texRegionData[c.cz * width + c.cx] : c.regionId) === commonRegionId
-  )
+    : (firstCell.regionId ?? 0);
+  const allSameRegion = selectedCells.every(
+    (c) =>
+      (texRegionData ? texRegionData[c.cz * width + c.cx] : c.regionId) ===
+      commonRegionId,
+  );
 
   function writeAllRegionId(newId: number) {
-    if (!outputs || !texRegionData) return
-    const affectedOldIds = new Set<number>()
+    if (!outputs || !texRegionData) return;
+    const affectedOldIds = new Set<number>();
     for (const { cx, cz } of selectedCells) {
-      const oldId = texRegionData[cz * width + cx]
-      if (oldId > 0) affectedOldIds.add(oldId)
-      texRegionData[cz * width + cx] = newId
-      if (bspOutputs?.fullRegionIds) bspOutputs.fullRegionIds[cz * width + cx] = newId
+      const oldId = texRegionData[cz * width + cx];
+      if (oldId > 0) affectedOldIds.add(oldId);
+      texRegionData[cz * width + cx] = newId;
+      if (bspOutputs?.fullRegionIds)
+        bspOutputs.fullRegionIds[cz * width + cx] = newId;
     }
     if (roomsMap) {
-      const H = outputs.height
+      const H = outputs.height;
       for (const oldId of affectedOldIds) {
-        const rect = computeRegionRect(texRegionData, width, H, oldId)
-        if (rect) roomsMap.get(oldId)!.rect = rect
-        else roomsMap.delete(oldId)
+        const rect = computeRegionRect(texRegionData, width, H, oldId);
+        if (rect) roomsMap.get(oldId)!.rect = rect;
+        else roomsMap.delete(oldId);
       }
       if (newId > 0) {
-        const rect = computeRegionRect(texRegionData, width, H, newId)
+        const rect = computeRegionRect(texRegionData, width, H, newId);
         if (rect) {
-          if (roomsMap.has(newId)) roomsMap.get(newId)!.rect = rect
-          else roomsMap.set(newId, { id: newId, type: 'room', rect, connections: [] })
+          if (roomsMap.has(newId)) roomsMap.get(newId)!.rect = rect;
+          else
+            roomsMap.set(newId, {
+              id: newId,
+              type: "room",
+              rect,
+              connections: [],
+            });
         }
       }
     }
-    setSelectedCells(selectedCells.map(c => ({ ...c, regionId: newId })))
-    renderer?.rebuild()
+    setSelectedCells(selectedCells.map((c) => ({ ...c, regionId: newId })));
+    renderer?.rebuild();
   }
 
-  function writeRoomType(newType: 'room' | 'corridor') {
+  function writeRoomType(newType: "room" | "corridor") {
     if (roomsMap && commonRegionId > 0 && roomsMap.has(commonRegionId)) {
-      roomsMap.get(commonRegionId)!.type = newType
+      roomsMap.get(commonRegionId)!.type = newType;
     }
-    setSelectedCells([...selectedCells])
-    renderer?.rebuild()
+    setSelectedCells([...selectedCells]);
+    renderer?.rebuild();
   }
 
   function writeAllFloor(r8: number) {
     if (texFloor?.image.data) {
       for (const { cx, cz } of selectedCells)
-        (texFloor.image.data as Uint8Array)[cz * width + cx] = r8
+        (texFloor.image.data as Uint8Array)[cz * width + cx] = r8;
     }
-    const next = { ...cellHeights }
+    const next = { ...cellHeights };
     for (const { cx, cz } of selectedCells) {
-      const key = `${cx},${cz}`
-      next[key] = { floor: r8, ceil: next[key]?.ceil ?? OFFSET_NEUTRAL }
+      const key = `${cx},${cz}`;
+      next[key] = { floor: r8, ceil: next[key]?.ceil ?? OFFSET_NEUTRAL };
     }
-    setCellHeights(next)
-    renderer?.rebuild()
+    setCellHeights(next);
+    renderer?.rebuild();
   }
 
   function writeAllCeil(r8: number) {
     if (texCeil?.image.data) {
       for (const { cx, cz } of selectedCells)
-        (texCeil.image.data as Uint8Array)[cz * width + cx] = r8
+        (texCeil.image.data as Uint8Array)[cz * width + cx] = r8;
     }
-    const next = { ...cellHeights }
+    const next = { ...cellHeights };
     for (const { cx, cz } of selectedCells) {
-      const key = `${cx},${cz}`
-      next[key] = { floor: next[key]?.floor ?? OFFSET_NEUTRAL, ceil: r8 }
+      const key = `${cx},${cz}`;
+      next[key] = { floor: next[key]?.floor ?? OFFSET_NEUTRAL, ceil: r8 };
     }
-    setCellHeights(next)
-    renderer?.rebuild()
+    setCellHeights(next);
+    renderer?.rebuild();
   }
 
-  const minX = Math.min(...selectedCells.map(c => c.cx))
-  const maxX = Math.max(...selectedCells.map(c => c.cx))
-  const minZ = Math.min(...selectedCells.map(c => c.cz))
-  const maxZ = Math.max(...selectedCells.map(c => c.cz))
+  const minX = Math.min(...selectedCells.map((c) => c.cx));
+  const maxX = Math.max(...selectedCells.map((c) => c.cx));
+  const minZ = Math.min(...selectedCells.map((c) => c.cz));
+  const maxZ = Math.max(...selectedCells.map((c) => c.cz));
 
-  const texCollider = outputs?.textures.colliderFlags as { image: { data: Uint8Array } } | undefined
-  const firstKey = `${firstCell.cx},${firstCell.cz}`
+  const texCollider = outputs?.textures.colliderFlags as
+    | { image: { data: Uint8Array } }
+    | undefined;
+  const firstKey = `${firstCell.cx},${firstCell.cz}`;
   const colliderValue: number = texCollider?.image.data
     ? (texCollider.image.data[firstCell.cz * width + firstCell.cx] ?? 0)
-    : (cellColliderFlags[firstKey] ?? 0)
+    : (cellColliderFlags[firstKey] ?? 0);
 
   function writeAllColliderFlags(v: number) {
     if (texCollider?.image.data) {
       for (const { cx, cz } of selectedCells)
-        texCollider.image.data[cz * width + cx] = v
+        texCollider.image.data[cz * width + cx] = v;
     }
-    const next = { ...cellColliderFlags }
-    for (const { cx, cz } of selectedCells)
-      next[`${cx},${cz}`] = v
-    setCellColliderFlags(next)
-    renderer?.rebuild()
+    const next = { ...cellColliderFlags };
+    for (const { cx, cz } of selectedCells) next[`${cx},${cz}`] = v;
+    setCellColliderFlags(next);
+    renderer?.rebuild();
   }
 
   return (
@@ -209,16 +261,7 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
         onClose={onClose}
         title={`Selection (${selectedCells.length} cells)`}
         bare
-        style={{
-          position: 'fixed',
-          left: 12,
-          top: 12,
-          bottom: 12,
-          minWidth: 280,
-          maxWidth: 340,
-          maxHeight: 'calc(100vh - 24px)',
-          zIndex: 50,
-        }}
+        className={styles.panel}
       >
         <AccordionSection title="Selection">
           <div className={styles.row}>
@@ -227,11 +270,15 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
           </div>
           <div className={styles.row}>
             <span className={styles.label}>X range</span>
-            <span className={styles.value}>{minX} – {maxX}</span>
+            <span className={styles.value}>
+              {minX} – {maxX}
+            </span>
           </div>
           <div className={styles.row}>
             <span className={styles.label}>Z range</span>
-            <span className={styles.value}>{minZ} – {maxZ}</span>
+            <span className={styles.value}>
+              {minZ} – {maxZ}
+            </span>
           </div>
         </AccordionSection>
 
@@ -239,70 +286,85 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
           <AccordionSection title="Region">
             <div className={styles.mutedNoteSm} style={{ marginBottom: 4 }}>
               {allSameRegion
-                ? `All cells in region ${commonRegionId || '(unassigned)'}`
-                : 'Mixed regions — assigning will override all'}
+                ? `All cells in region ${commonRegionId || "(unassigned)"}`
+                : "Mixed regions — assigning will override all"}
             </div>
             <div className={styles.rowCenter}>
               <span className={styles.labelSm}>Region ID</span>
               <select
-                value={allSameRegion ? commonRegionId : ''}
-                onChange={e => {
-                  const v = e.target.value
-                  if (v === '__new__') {
-                    const maxId = regionIds.length > 0 ? Math.max(...regionIds) : 0
-                    writeAllRegionId(Math.min(maxId + 1, 255))
-                  } else if (v !== '') {
-                    writeAllRegionId(Number(v))
+                value={allSameRegion ? commonRegionId : ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "__new__") {
+                    const maxId =
+                      regionIds.length > 0 ? Math.max(...regionIds) : 0;
+                    writeAllRegionId(Math.min(maxId + 1, 255));
+                  } else if (v !== "") {
+                    writeAllRegionId(Number(v));
                   }
                 }}
                 className={styles.select}
               >
                 {!allSameRegion && <option value="">— mixed —</option>}
                 <option value={0}>0 (unassigned)</option>
-                {regionIds.map(id => (
-                  <option key={id} value={id}>{id} ({roomsMap?.get(id)?.type ?? 'room'})</option>
+                {regionIds.map((id) => (
+                  <option key={id} value={id}>
+                    {id} ({roomsMap?.get(id)?.type ?? "room"})
+                  </option>
                 ))}
                 <option value="__new__">+ Add new region</option>
               </select>
             </div>
-            {allSameRegion && commonRegionId > 0 && roomsMap?.has(commonRegionId) && (
-              <div className={styles.rowCenter} style={{ marginTop: 4 }}>
-                <span className={styles.labelSm}>Room type</span>
-                <select
-                  value={roomsMap.get(commonRegionId)?.type ?? 'room'}
-                  onChange={e => writeRoomType(e.target.value as 'room' | 'corridor')}
-                  className={styles.select}
-                >
-                  <option value="room">Room</option>
-                  <option value="corridor">Corridor</option>
-                </select>
-              </div>
-            )}
+            {allSameRegion &&
+              commonRegionId > 0 &&
+              roomsMap?.has(commonRegionId) && (
+                <div className={styles.rowCenter} style={{ marginTop: 4 }}>
+                  <span className={styles.labelSm}>Room type</span>
+                  <select
+                    value={roomsMap.get(commonRegionId)?.type ?? "room"}
+                    onChange={(e) =>
+                      writeRoomType(e.target.value as "room" | "corridor")
+                    }
+                    className={styles.select}
+                  >
+                    <option value="room">Room</option>
+                    <option value="corridor">Corridor</option>
+                  </select>
+                </div>
+              )}
           </AccordionSection>
         )}
 
         {outputs && (texFloor || texCeil) && (
-          <AccordionSection title={`Height Offsets (floor: ${floorIsPit ? 'pit' : floorSteps > 0 ? `+${floorSteps}` : floorSteps}, ceil: ${ceilIsSky ? 'sky' : ceilSteps > 0 ? `+${ceilSteps}` : ceilSteps})`}>
+          <AccordionSection
+            title={`Height Offsets (floor: ${floorIsPit ? "pit" : floorSteps > 0 ? `+${floorSteps}` : floorSteps}, ceil: ${ceilIsSky ? "sky" : ceilSteps > 0 ? `+${ceilSteps}` : ceilSteps})`}
+          >
             <SliderRow
               label="Floor offset"
               steps={floorSteps}
               isPit={floorIsPit}
-              onChange={s => { setFloorSteps(s); writeAllFloor(Math.max(1, OFFSET_NEUTRAL + s)) }}
+              onChange={(s) => {
+                setFloorSteps(s);
+                writeAllFloor(Math.max(1, OFFSET_NEUTRAL + s));
+              }}
               onPitToggle={() => {
-                const next = !floorIsPit
-                setFloorIsPit(next)
-                writeAllFloor(next ? 0 : OFFSET_NEUTRAL)
+                const next = !floorIsPit;
+                setFloorIsPit(next);
+                writeAllFloor(next ? 0 : OFFSET_NEUTRAL);
               }}
             />
             <SliderRow
               label="Ceiling offset"
               steps={ceilSteps}
               isSky={ceilIsSky}
-              onChange={s => { setCeilSteps(s); writeAllCeil(OFFSET_NEUTRAL - s) }}
+              onChange={(s) => {
+                setCeilSteps(s);
+                writeAllCeil(OFFSET_NEUTRAL - s);
+              }}
               onSkyToggle={() => {
-                const next = !ceilIsSky
-                setCeilIsSky(next)
-                writeAllCeil(next ? 127 : OFFSET_NEUTRAL)
+                const next = !ceilIsSky;
+                setCeilIsSky(next);
+                writeAllCeil(next ? 127 : OFFSET_NEUTRAL);
               }}
             />
           </AccordionSection>
@@ -340,7 +402,8 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
         {outputs && (
           <AccordionSection title="Collision Flags">
             <div className={styles.mutedNoteSm} style={{ marginBottom: 4 }}>
-              Applies to all {selectedCells.length} selected cells (shown from first cell)
+              Applies to all {selectedCells.length} selected cells (shown from
+              first cell)
             </div>
             <ColliderFlagsEditor
               value={colliderValue}
@@ -375,5 +438,5 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
         />
       )}
     </>
-  )
+  );
 }
