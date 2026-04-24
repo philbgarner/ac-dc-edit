@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Modal from "./Modal";
+import { useModalSearch } from "./ModalSearchContext";
 import AccordionSection from "./AccordionSection";
 import OverlayPaintModal from "./OverlayPaintModal";
 import SkirtPaintModal from "./SkirtPaintModal";
@@ -51,15 +52,36 @@ function readR8(
   return tex.image.data[cz * width + cx] ?? 0;
 }
 
+function highlight(text: string, filter: string): React.ReactNode {
+  if (!filter) return text;
+  const parts: React.ReactNode[] = [];
+  const lower = text.toLowerCase();
+  const lowerFilter = filter.toLowerCase();
+  let last = 0, idx: number;
+  while ((idx = lower.indexOf(lowerFilter, last)) !== -1) {
+    if (idx > last) parts.push(text.slice(last, idx));
+    parts.push(
+      <mark key={idx} style={{ background: "#4a62c8", color: "#fff", borderRadius: 2 }}>
+        {text.slice(idx, idx + filter.length)}
+      </mark>
+    );
+    last = idx + filter.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.length ? <>{parts}</> : text;
+}
+
 interface RowProps {
   label: string;
   value: string | number;
 }
 function Row({ label, value }: RowProps) {
+  const { filter } = useModalSearch();
+  const valueStr = String(value);
   return (
     <div className={styles.row}>
-      <span className={styles.labelWide}>{label}</span>
-      <span className={styles.value}>{value}</span>
+      <span className={styles.labelWide}>{highlight(label, filter)}</span>
+      <span className={styles.value}>{highlight(valueStr, filter)}</span>
     </div>
   );
 }
@@ -368,6 +390,7 @@ export default function CellDetailsModal({ onClose }: Props) {
         title={`Cell (${cx}, ${cz})`}
         bare
         className={styles.panel}
+        searchFilter
       >
         <AccordionSection title="Position">
           <Row label="Column (cx)" value={cx} />

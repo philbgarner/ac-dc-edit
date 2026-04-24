@@ -1,4 +1,12 @@
-import { useEffect, ReactNode } from "react";
+import {
+  useEffect,
+  ReactNode,
+  useState,
+  Children,
+  isValidElement,
+} from "react";
+import { ModalSearchContext } from "./ModalSearchContext";
+import AccordionSection from "./AccordionSection";
 
 interface ModalProps {
   onClose: () => void;
@@ -8,7 +16,25 @@ interface ModalProps {
   bare?: boolean;
   style?: React.CSSProperties;
   className?: string;
+  searchFilter?: boolean;
 }
+
+function hasAccordionChild(children: ReactNode): boolean {
+  return Children.toArray(children).some(
+    (c) => isValidElement(c) && c.type === AccordionSection,
+  );
+}
+
+const btnStyle: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  color: "#8090c0",
+  cursor: "pointer",
+  fontSize: 11,
+  lineHeight: 1,
+  padding: "0 3px",
+  letterSpacing: "-1px",
+};
 
 export default function Modal({
   onClose,
@@ -17,6 +43,7 @@ export default function Modal({
   bare,
   style,
   className,
+  searchFilter = false,
 }: ModalProps) {
   // Close on Escape
   useEffect(() => {
@@ -27,6 +54,12 @@ export default function Modal({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const [filter, setSearchFilter] = useState("");
+  const [forceExpand, setForceExpand] = useState(0);
+  const [forceCollapse, setForceCollapse] = useState(0);
+
+  const showAccordionControls = hasAccordionChild(children);
+
   const panel = (
     <div
       className={className}
@@ -36,17 +69,14 @@ export default function Modal({
               background: "#0e1428",
               border: "1px solid #304080",
               borderRadius: 6,
-              padding: "20px 24px",
               minWidth: 600,
               maxWidth: "90vw",
               maxHeight: "85vh",
-              overflowY: "auto",
               color: "#c8d0f8",
               fontFamily: "monospace",
               fontSize: 13,
               display: "flex",
               flexDirection: "column",
-              gap: 16,
               ...style,
             }
           : style
@@ -58,13 +88,78 @@ export default function Modal({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          position: "sticky",
+          top: "0",
+          background: "linear-gradient(180deg, #1a2050, #0e1428)",
+          padding: "1rem",
+          margin: 0,
         }}
       >
         {title && (
-          <span style={{ fontWeight: "bold", fontSize: 14, color: "#d0dcff" }}>
-            {title}
-          </span>
+          <span style={{ fontWeight: "bold", fontSize: 14 }}>{title}</span>
         )}
+
+        {searchFilter && (
+          <div
+            style={{
+              marginLeft: "2rem",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <input
+              type="text"
+              value={filter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              placeholder="search"
+              style={{
+                background: "transparent",
+                border: "0px",
+                borderBottom: "#c8d0f8a1 solid 1px",
+                color: "#c8d0f8",
+                outline: "none",
+                maxWidth: "60%",
+              }}
+            />
+            {filter && (
+              <button
+                onClick={() => setSearchFilter("")}
+                title="Clear search"
+                style={{ ...btnStyle, fontSize: 14 }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )}
+
+        {showAccordionControls && (
+          <div
+            style={{
+              marginLeft: "1rem",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+            }}
+          >
+            <button
+              onClick={() => setForceExpand((n) => n + 1)}
+              title="Expand all sections"
+              style={{ ...btnStyle, fontSize: 14 }}
+            >
+              ⊞
+            </button>
+            <button
+              onClick={() => setForceCollapse((n) => n + 1)}
+              title="Collapse all sections"
+              style={{ ...btnStyle, fontSize: 14 }}
+            >
+              ⊟
+            </button>
+          </div>
+        )}
+
         <button
           onClick={onClose}
           style={{
@@ -81,8 +176,30 @@ export default function Modal({
           ×
         </button>
       </div>
-
-      {children}
+      {/* Container */}
+      <div style={{ padding: "1rem", overflow: "auto", height: "100%" }}>
+        <ModalSearchContext.Provider
+          value={{ filter, forceExpand, forceCollapse }}
+        >
+          {children}
+        </ModalSearchContext.Provider>
+      </div>
+      {/* Footer */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          position: "sticky",
+          bottom: "0",
+          background: "linear-gradient(0deg, #1a2050, #0e1428)",
+          padding: 0,
+          margin: 0,
+          height: "0.5rem",
+        }}
+      >
+        &nbsp;
+      </div>
     </div>
   );
 

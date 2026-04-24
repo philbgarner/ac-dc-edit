@@ -9,15 +9,14 @@
     background: #0e1428;
     border: 1px solid #304080;
     border-radius: 6px;
-    padding: 20px 24px;
+    /*padding: 20px 24px;*/
     width: 28rem;
-    overflow-y: auto;
     color: #c8d0f8;
     font-family: monospace;
     font-size: 13px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    /*gap: 16px;*/
 }
 
 .row {

@@ -262,6 +262,7 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
         title={`Selection (${selectedCells.length} cells)`}
         bare
         className={styles.panel}
+        searchFilter
       >
         <AccordionSection title="Selection">
           <div className={styles.row}>
