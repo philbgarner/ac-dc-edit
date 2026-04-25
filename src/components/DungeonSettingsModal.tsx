@@ -80,6 +80,16 @@ export default function DungeonSettingsModal({ onClose }: Props) {
     setLocal((prev) => ({ ...prev, [key]: value }));
   }
 
+  function setSL<K extends keyof RendererSettings["surfaceLighting"]>(
+    key: K,
+    value: number,
+  ) {
+    setLocal((prev) => ({
+      ...prev,
+      surfaceLighting: { ...prev.surfaceLighting, [key]: value },
+    }));
+  }
+
   function apply() {
     setRendererSettings(local);
     onClose();
@@ -198,6 +208,42 @@ export default function DungeonSettingsModal({ onClose }: Props) {
           step={0.01}
           format={(v) => v?.toFixed(2) ?? 0}
           onChange={(v) => set("ambientOcclusion", v)}
+        />
+        <SliderRow
+          label="Surface light (floor)"
+          value={local.surfaceLighting.floor}
+          min={0}
+          max={2}
+          step={0.01}
+          format={(v) => v.toFixed(2)}
+          onChange={(v) => setSL("floor", v)}
+        />
+        <SliderRow
+          label="Surface light (ceiling)"
+          value={local.surfaceLighting.ceiling}
+          min={0}
+          max={2}
+          step={0.01}
+          format={(v) => v.toFixed(2)}
+          onChange={(v) => setSL("ceiling", v)}
+        />
+        <SliderRow
+          label="Wall light min"
+          value={local.surfaceLighting.wallMin}
+          min={0}
+          max={2}
+          step={0.01}
+          format={(v) => v.toFixed(2)}
+          onChange={(v) => setSL("wallMin", v)}
+        />
+        <SliderRow
+          label="Wall light max"
+          value={local.surfaceLighting.wallMax}
+          min={0}
+          max={2}
+          step={0.01}
+          format={(v) => v.toFixed(2)}
+          onChange={(v) => setSL("wallMax", v)}
         />
       </Section>
 

@@ -65,6 +65,12 @@ export interface RendererSettings {
   offsetFactor: number;
   eyeHeightFactor: number;
   ambientOcclusion: number;
+  surfaceLighting: {
+    floor: number;
+    ceiling: number;
+    wallMin: number;
+    wallMax: number;
+  };
 }
 
 export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
@@ -78,6 +84,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   offsetFactor: 1 / 12,
   eyeHeightFactor: 0.66,
   ambientOcclusion: 0.75,
+  surfaceLighting: { floor: 0.85, ceiling: 0.95, wallMin: 0.9, wallMax: 1.1 },
 };
 
 type GameInstance = ReturnType<typeof createGame>;
@@ -208,9 +215,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [cellHeights, setCellHeights] = useState<
     Record<string, { floor: number; ceil: number }>
   >({});
-  const [rendererSettings, setRendererSettings] = useState<RendererSettings>(
-    () => loadSettings() ?? DEFAULT_RENDERER_SETTINGS,
-  );
+  const [rendererSettings, setRendererSettings] = useState<RendererSettings>(() => {
+    const saved = loadSettings();
+    if (!saved) return DEFAULT_RENDERER_SETTINGS;
+    return {
+      ...DEFAULT_RENDERER_SETTINGS,
+      ...saved,
+      surfaceLighting: { ...DEFAULT_RENDERER_SETTINGS.surfaceLighting, ...saved.surfaceLighting },
+    };
+  });
   const [activeTool, setActiveTool] = useState<PaintTool | null>(null);
   const [selectedCells, setSelectedCells] = useState<CellInfo[]>([]);
   const [cellSkirts, setCellSkirts] = useState<Record<string, CellSkirtTarget>>({});
