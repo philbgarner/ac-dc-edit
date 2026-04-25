@@ -348,7 +348,38 @@ export default function TopDownEditorModal({ onClose }: Props) {
       ctx.fillStyle = "rgba(255,230,20,0.52)";
       ctx.fillRect(x, y, cellW, cellH);
     }
+
+    // Player location + direction indicator
+    if (game?.player) {
+      const px = game.player.x;
+      const pz = game.player.z;
+      const cx = px * cellW + cellW / 2;
+      const cy = pz * cellH + cellH / 2;
+      const r = Math.min(cellW, cellH) * 0.38;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(64,224,128,0.9)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.6)";
+      ctx.lineWidth = Math.max(1, r * 0.18);
+      ctx.stroke();
+
+      // Direction arrow
+      const yaw = game.player.facing;
+      const dx = -Math.sin(yaw);
+      const dz = -Math.cos(yaw);
+      const arrowLen = r * 1.2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + dx * arrowLen, cy + dz * arrowLen);
+      ctx.strokeStyle = "rgba(0,0,0,0.8)";
+      ctx.lineWidth = Math.max(1.5, r * 0.25);
+      ctx.lineCap = "round";
+      ctx.stroke();
+    }
   }, [
+    game,
     outputs,
     mapWidth,
     mapHeight,
@@ -363,6 +394,14 @@ export default function TopDownEditorModal({ onClose }: Props) {
   useEffect(() => {
     draw();
   }, [draw]);
+
+  // Redraw when the player moves or rotates
+  useEffect(() => {
+    if (!game) return;
+    const onTurn = () => drawRef.current();
+    game.events.on("turn", onTurn);
+    return () => game.events.off("turn", onTurn);
+  }, [game]);
 
   // ── Resize observer ───────────────────────────────────────────────────────────
   useEffect(() => {

@@ -64,6 +64,7 @@ export interface RendererSettings {
   lerpFactor: number;
   offsetFactor: number;
   eyeHeightFactor: number;
+  ambientOcclusion: number;
 }
 
 export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
@@ -76,6 +77,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   lerpFactor: 0.18,
   offsetFactor: 1 / 12,
   eyeHeightFactor: 0.66,
+  ambientOcclusion: 0.75,
 };
 
 type GameInstance = ReturnType<typeof createGame>;
