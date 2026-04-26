@@ -4,6 +4,7 @@ import type { BspDungeonOutputs } from "atomic-core";
 import { useData } from "../DataContext";
 import AtlasImportModal from "./AtlasImportModal";
 import DungeonSettingsModal from "./DungeonSettingsModal";
+import DungeonLightsModal from "./DungeonLightsModal";
 import NewMapModal from "./NewMapModal";
 
 interface Props {
@@ -14,6 +15,7 @@ export default function Toolbar({ onOpenMapEditor }: Props) {
   const [showImport, setShowImport] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showNewMap, setShowNewMap] = useState(false);
+  const [showLights, setShowLights] = useState(false);
   const { game, generatorOptions, setImportRequest } = useData();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,6 +108,9 @@ export default function Toolbar({ onOpenMapEditor }: Props) {
         <button onClick={() => setShowImport(true)} style={btnStyle}>
           Import Atlas
         </button>
+        <button onClick={() => setShowLights(true)} style={btnStyle}>
+          Lights
+        </button>
         <button onClick={() => setShowSettings(true)} style={btnStyle}>
           Settings
         </button>
@@ -118,6 +123,9 @@ export default function Toolbar({ onOpenMapEditor }: Props) {
       {showImport && <AtlasImportModal onClose={() => setShowImport(false)} />}
       {showSettings && (
         <DungeonSettingsModal onClose={() => setShowSettings(false)} />
+      )}
+      {showLights && (
+        <DungeonLightsModal onClose={() => setShowLights(false)} />
       )}
     </>
   );

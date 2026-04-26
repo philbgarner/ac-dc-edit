@@ -6,6 +6,7 @@ import {
   useRef,
   ReactNode,
 } from "react";
+import * as THREE from "three";
 import { createGame, loadMultiAtlas, packedAtlasResolver } from "atomic-core";
 import type {
   PackedAtlas,
@@ -51,6 +52,18 @@ export interface CellSkirtTarget {
 
 /** Maps bit values (8, 16, 32, 64, 128) to user-defined names. */
 export type CustomFlagNames = Record<number, string>
+
+export interface LightPlacement {
+  id: string
+  color: string
+  intensity: number
+  distance: number
+  decay: number
+  x: number
+  y: number
+  z: number
+  attachToCamera: boolean
+}
 
 export type PaintTool = 'pencil' | 'rect' | 'filledRect' | 'circle' | 'filledCircle' | 'floodFill'
 
@@ -161,6 +174,8 @@ interface DataContextValue {
   setGeneratorOptions: (opts: GeneratorOptions | null) => void;
   importRequest: { options: GeneratorOptions; seq: number; importResult?: ImportResult } | null;
   setImportRequest: (req: { options: GeneratorOptions; seq: number; importResult?: ImportResult } | null) => void;
+  dungeonLights: LightPlacement[];
+  setDungeonLights: (lights: LightPlacement[]) => void;
 }
 
 const DataContext = createContext<DataContextValue>({
@@ -199,6 +214,8 @@ const DataContext = createContext<DataContextValue>({
   setGeneratorOptions: () => {},
   importRequest: null,
   setImportRequest: () => {},
+  dungeonLights: [],
+  setDungeonLights: () => {},
 });
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -232,6 +249,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [cellDecorations, setCellDecorations] = useState<Record<string, DecorationPlacement[]>>({});
   const [generatorOptions, setGeneratorOptions] = useState<GeneratorOptions | null>(null);
   const [importRequest, setImportRequest] = useState<{ options: GeneratorOptions; seq: number; importResult?: ImportResult } | null>(null);
+  const [dungeonLights, setDungeonLights] = useState<LightPlacement[]>([]);
+  const lightRefsRef = useRef<Map<string, THREE.PointLight>>(new Map());
 
   useEffect(() => {
     if (!atlasConfig) { setPackedAtlasUrl(null); return; }
@@ -316,6 +335,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
     );
   }, [atlasEntries]);
 
+  // Sync dungeonLights to renderer via addLight/removeLight.
+  useEffect(() => {
+    if (!renderer) {
+      lightRefsRef.current.clear();
+      return;
+    }
+    lightRefsRef.current.forEach((light) => {
+      renderer.removeLight(light);
+      renderer.camera.remove(light);
+    });
+    lightRefsRef.current.clear();
+    for (const pl of dungeonLights) {
+      const light = new THREE.PointLight(pl.color, pl.intensity, pl.distance, pl.decay);
+      renderer.addLight(light);
+      if (pl.attachToCamera) {
+        renderer.camera.add(light);
+      } else {
+        light.position.set(pl.x, pl.y, pl.z);
+      }
+      lightRefsRef.current.set(pl.id, light);
+    }
+  }, [renderer, dungeonLights]);
+
   // Persist tile assignments whenever atlasConfig changes.
   useEffect(() => {
     if (!atlasConfig) return;
@@ -366,6 +408,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setGeneratorOptions,
         importRequest,
         setImportRequest,
+        dungeonLights,
+        setDungeonLights,
       }}
     >
       {children}
