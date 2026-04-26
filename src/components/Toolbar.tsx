@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { dungeonMapToJson, dungeonMapFromJson } from "atomic-core";
-import type { BspDungeonOutputs } from "atomic-core";
+import type { BspDungeonOutputs, ObjectPlacement } from "atomic-core";
 import { useData } from "../DataContext";
 import AtlasImportModal from "./AtlasImportModal";
 import DungeonSettingsModal from "./DungeonSettingsModal";
@@ -16,14 +16,34 @@ export default function Toolbar({ onOpenMapEditor }: Props) {
   const [showSettings, setShowSettings] = useState(false);
   const [showNewMap, setShowNewMap] = useState(false);
   const [showLights, setShowLights] = useState(false);
-  const { game, generatorOptions, setImportRequest } = useData();
+  const { game, generatorOptions, setImportRequest, cellDecorations, rendererSettings } = useData();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
     if (!game?.dungeon.outputs || !generatorOptions) return;
+    const objectPlacements: ObjectPlacement[] = Object.values(cellDecorations)
+      .flat()
+      .map((d) => {
+        const meta: Record<string, unknown> = {};
+        if (d.sprite) meta.sprite = d.sprite;
+        if (d.blocksMove !== undefined) meta.blocksMove = d.blocksMove;
+        return {
+          x: d.x,
+          z: d.z,
+          type: d.type || "decoration",
+          ...(d.offsetX !== undefined && { offsetX: d.offsetX }),
+          ...(d.offsetZ !== undefined && { offsetZ: d.offsetZ }),
+          ...(d.offsetY !== undefined && { offsetY: d.offsetY }),
+          ...(d.yaw !== undefined && { yaw: d.yaw }),
+          ...(d.scale !== undefined && { scale: d.scale }),
+          ...(Object.keys(meta).length > 0 && { meta }),
+        };
+      });
     const json = dungeonMapToJson(game.dungeon.outputs as BspDungeonOutputs, {
       generatorOptions,
+      rendererOptions: rendererSettings,
       paintMap: game.dungeon.paintMap,
+      ...(objectPlacements.length > 0 && { objectPlacements }),
     });
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);

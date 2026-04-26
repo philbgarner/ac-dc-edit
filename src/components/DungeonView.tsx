@@ -11,8 +11,8 @@ import type {
   LayerHandle,
   CellInfo,
 } from "atomic-core";
-import { useData } from "../DataContext";
-import type { PaintTool } from "../DataContext";
+import { useData, DEFAULT_RENDERER_SETTINGS } from "../DataContext";
+import type { PaintTool, RendererSettings } from "../DataContext";
 
 // ── Geometry helpers ────────────────────────────────────────────────────────
 
@@ -106,6 +106,7 @@ export default function DungeonView() {
     setHoveredCell,
     setRenderer,
     rendererSettings,
+    setRendererSettings,
     activeTool,
     selectedCells,
     setSelectedCells,
@@ -113,6 +114,7 @@ export default function DungeonView() {
     importRequest,
     setCellHeights,
     setCellPaints,
+    setCellDecorations,
   } = useData();
 
   const DEFAULT_GENERATOR_OPTIONS = {
@@ -266,10 +268,49 @@ export default function DungeonView() {
         paints[key] = target;
       }
       setCellPaints(paints);
+
+      // restore decorations (shim: absent in older files → empty)
+      if (imported.objectPlacements && imported.objectPlacements.length > 0) {
+        const decorations: Record<string, import("../DataContext").DecorationPlacement[]> = {};
+        for (const op of imported.objectPlacements) {
+          const key = `${op.x},${op.z}`;
+          if (!decorations[key]) decorations[key] = [];
+          decorations[key].push({
+            x: op.x,
+            z: op.z,
+            type: op.type,
+            sprite: typeof op.meta?.sprite === "string" ? op.meta.sprite : "",
+            ...(op.offsetX !== undefined && { offsetX: op.offsetX }),
+            ...(op.offsetZ !== undefined && { offsetZ: op.offsetZ }),
+            ...(op.offsetY !== undefined && { offsetY: op.offsetY }),
+            ...(op.yaw !== undefined && { yaw: op.yaw }),
+            ...(op.scale !== undefined && { scale: op.scale }),
+            ...(typeof op.meta?.blocksMove === "boolean" && { blocksMove: op.meta.blocksMove }),
+          });
+        }
+        setCellDecorations(decorations);
+      } else {
+        setCellDecorations({});
+      }
+
+      // restore renderer options (shim: absent/empty in older files → keep current settings)
+      const ro = imported.rendererOptions;
+      if (ro && Object.keys(ro).length > 0) {
+        const opts = ro as Partial<RendererSettings>;
+        setRendererSettings({
+          ...DEFAULT_RENDERER_SETTINGS,
+          ...opts,
+          surfaceLighting: {
+            ...DEFAULT_RENDERER_SETTINGS.surfaceLighting,
+            ...opts.surfaceLighting,
+          },
+        });
+      }
     } else if (importRequest) {
       // new map — clear any stale editor state
       setCellHeights({});
       setCellPaints({});
+      setCellDecorations({});
     }
 
     setGame(g);
