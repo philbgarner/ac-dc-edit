@@ -16,8 +16,8 @@ export default function Minimap() {
       size: SIZE,
       showEntities: true,
       colors: {
-        explored: '#1e2a40',
-        visible: '#6080c0',
+        floorDim: '#1e2a40',
+        floor: '#6080c0',
         player: '#40e080',
         enemy: '#e04040',
       },
