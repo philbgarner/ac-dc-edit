@@ -122,6 +122,51 @@ export default function DecorationEditor({ cx, cz, decorations, onChange }: Prop
                     style={{ accentColor: '#5870d0' }}
                   />
                 </div>
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ color: '#506080', fontSize: 10, marginBottom: 3 }}>custom attributes</div>
+                  {Object.entries(d.customAttrs ?? {}).map(([k, v]) => (
+                    <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                      <input
+                        type="text"
+                        value={k}
+                        placeholder="key"
+                        onChange={e => {
+                          const next: Record<string, unknown> = { ...(d.customAttrs ?? {}) }
+                          delete next[k]
+                          next[e.target.value] = v
+                          update(i, { customAttrs: next })
+                        }}
+                        style={{ ...inputStyle, width: 72 }}
+                      />
+                      <input
+                        type="text"
+                        value={String(v ?? '')}
+                        placeholder="value"
+                        onChange={e => {
+                          const raw = e.target.value
+                          let parsed: unknown = raw
+                          if (raw === 'true') parsed = true
+                          else if (raw === 'false') parsed = false
+                          else if (raw !== '' && !isNaN(Number(raw))) parsed = Number(raw)
+                          update(i, { customAttrs: { ...(d.customAttrs ?? {}), [k]: parsed } })
+                        }}
+                        style={{ ...inputStyle, flex: 1 }}
+                      />
+                      <button
+                        onClick={() => {
+                          const next = { ...(d.customAttrs ?? {}) }
+                          delete next[k]
+                          update(i, { customAttrs: Object.keys(next).length ? next : undefined })
+                        }}
+                        style={{ ...btnStyle, color: '#905050' }}
+                      >×</button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => update(i, { customAttrs: { ...(d.customAttrs ?? {}), '': '' } })}
+                    style={{ ...btnStyle, fontSize: 10, marginTop: 2 }}
+                  >+ attr</button>
+                </div>
                 {d._entityId && (
                   <div style={{ color: '#304060', fontSize: 10 }}>id: {d._entityId}</div>
                 )}

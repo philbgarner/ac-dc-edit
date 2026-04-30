@@ -25,6 +25,8 @@ import {
   saveAtlasEntries,
   loadTileAssignments,
   saveTileAssignments,
+  loadSkyboxConfig,
+  saveSkyboxConfig,
 } from "./persistence";
 
 export type { SurfacePaintTarget };
@@ -41,8 +43,20 @@ export interface DecorationPlacement {
   yaw?: number
   scale?: number
   blocksMove?: boolean
+  /** Game-specific custom attributes stored on the entity. */
+  customAttrs?: Record<string, unknown>
   /** Runtime id of the live DecorationEntity in game.dungeon.decorations, if synced. */
   _entityId?: string
+}
+
+/** Skybox cube-map configuration. */
+export interface SkyboxConfig {
+  faces: {
+    px: string; nx: string;
+    py: string; ny: string;
+    pz: string; nz: string;
+  };
+  rotationY?: number;
 }
 
 export interface CellSkirtTarget {
@@ -78,6 +92,7 @@ export interface RendererSettings {
   offsetFactor: number;
   eyeHeightFactor: number;
   ambientOcclusion: number;
+  openSkyLighting: number;
   surfaceLighting: {
     floor: number;
     ceiling: number;
@@ -97,6 +112,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   offsetFactor: 1 / 12,
   eyeHeightFactor: 0.66,
   ambientOcclusion: 0.75,
+  openSkyLighting: 0,
   surfaceLighting: { floor: 0.85, ceiling: 0.95, wallMin: 0.9, wallMax: 1.1 },
 };
 
@@ -176,6 +192,11 @@ interface DataContextValue {
   setImportRequest: (req: { options: GeneratorOptions; seq: number; importResult?: ImportResult } | null) => void;
   dungeonLights: LightPlacement[];
   setDungeonLights: (lights: LightPlacement[]) => void;
+  skyboxConfig: SkyboxConfig | null;
+  setSkyboxConfig: (config: SkyboxConfig | null) => void;
+  /** Raw parsed map file from the last import, for accessing editor-extension fields. */
+  importRawFile: Record<string, unknown> | null;
+  setImportRawFile: (raw: Record<string, unknown> | null) => void;
 }
 
 const DataContext = createContext<DataContextValue>({
@@ -216,6 +237,10 @@ const DataContext = createContext<DataContextValue>({
   setImportRequest: () => {},
   dungeonLights: [],
   setDungeonLights: () => {},
+  skyboxConfig: null,
+  setSkyboxConfig: () => {},
+  importRawFile: null,
+  setImportRawFile: () => {},
 });
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -251,6 +276,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [importRequest, setImportRequest] = useState<{ options: GeneratorOptions; seq: number; importResult?: ImportResult } | null>(null);
   const [dungeonLights, setDungeonLights] = useState<LightPlacement[]>([]);
   const lightRefsRef = useRef<Map<string, THREE.PointLight>>(new Map());
+  const [skyboxConfig, setSkyboxConfig] = useState<SkyboxConfig | null>(null);
+  const skyboxLoadedRef = useRef(false);
+  const [importRawFile, setImportRawFile] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     if (!atlasConfig) { setPackedAtlasUrl(null); return; }
@@ -358,6 +386,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [renderer, dungeonLights]);
 
+  // Load skybox from IndexedDB on mount (migrates legacy localStorage entry if present).
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await loadSkyboxConfig();
+        if (stored) setSkyboxConfig(stored);
+      } catch (e) {
+        console.warn("Failed to restore skybox from storage:", e);
+      } finally {
+        skyboxLoadedRef.current = true;
+      }
+    })();
+  }, []);
+
+  // Persist skybox config to IndexedDB whenever it changes (skip until initial load done).
+  useEffect(() => {
+    if (!skyboxLoadedRef.current) return;
+    void saveSkyboxConfig(skyboxConfig);
+  }, [skyboxConfig]);
+
   // Persist tile assignments whenever atlasConfig changes.
   useEffect(() => {
     if (!atlasConfig) return;
@@ -410,6 +458,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setImportRequest,
         dungeonLights,
         setDungeonLights,
+        skyboxConfig,
+        setSkyboxConfig,
+        importRawFile,
+        setImportRawFile,
       }}
     >
       {children}

@@ -8,7 +8,7 @@ import ColliderFlagsEditor from "./ColliderFlagsEditor";
 import DecorationEditor from "./DecorationEditor";
 import { useData } from "../DataContext";
 import type { DecorationPlacement } from "../DataContext";
-import { createDecoration } from "atomic-core";
+import { createEntity } from "atomic-core";
 import type { SpriteMap } from "atomic-core";
 import styles from "./CellDetailsModal.module.css";
 
@@ -361,15 +361,18 @@ export default function CellDetailsModal({ onClose }: Props) {
         }
       }
 
-      const entity = createDecoration({
-        type: d.type || "decoration",
-        sprite: d.sprite,
+      const entity = createEntity({
+        kind: "decoration",
+        faction: "neutral",
+        spriteName: d.sprite,
         x: d.x,
         z: d.z,
-        yaw: d.yaw,
-        scale: d.scale,
-        blocksMove: d.blocksMove,
-        spriteMap,
+        blocksMove: d.blocksMove ?? false,
+        ...(spriteMap !== undefined ? { spriteMap } : {}),
+        type: d.type || "decoration",
+        ...(d.yaw !== undefined ? { yaw: d.yaw } : {}),
+        ...(d.scale !== undefined ? { scale: d.scale } : {}),
+        ...(d.customAttrs ?? {}),
       });
       entity.alive = true;
       game.dungeon.decorations.add(entity);

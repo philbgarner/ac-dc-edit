@@ -105,6 +105,7 @@ export default function DungeonView() {
     setSelectedCell,
     setHoveredCell,
     setRenderer,
+    renderer,
     rendererSettings,
     setRendererSettings,
     activeTool,
@@ -112,9 +113,12 @@ export default function DungeonView() {
     setSelectedCells,
     setGeneratorOptions,
     importRequest,
+    importRawFile,
     setCellHeights,
     setCellPaints,
     setCellDecorations,
+    skyboxConfig,
+    setSkyboxConfig,
   } = useData();
 
   const DEFAULT_GENERATOR_OPTIONS = {
@@ -269,8 +273,39 @@ export default function DungeonView() {
       }
       setCellPaints(paints);
 
-      // restore decorations (shim: absent in older files → empty)
-      if (imported.objectPlacements && imported.objectPlacements.length > 0) {
+      // restore entities/decorations
+      // New format: top-level entities[] array on the raw file
+      // Old format shim: objectPlacements with meta.sprite / meta.blocksMove
+      type SerializedEntity = {
+        kind?: string; x: number; z: number; type?: string; sprite?: string;
+        offsetX?: number; offsetY?: number; offsetZ?: number;
+        yaw?: number; scale?: number; blocksMove?: boolean;
+        [key: string]: unknown;
+      };
+      const importedEntities = importRawFile?.entities as SerializedEntity[] | undefined;
+      if (importedEntities && importedEntities.length > 0) {
+        const decorations: Record<string, import("../DataContext").DecorationPlacement[]> = {};
+        for (const e of importedEntities) {
+          const key = `${e.x},${e.z}`;
+          if (!decorations[key]) decorations[key] = [];
+          const { kind: _kind, x, z, type, sprite, offsetX, offsetY, offsetZ, yaw, scale, blocksMove, ...rest } = e;
+          const customAttrs = Object.keys(rest).length > 0 ? rest : undefined;
+          decorations[key].push({
+            x, z,
+            type: typeof type === "string" ? type : "decoration",
+            sprite: typeof sprite === "string" ? sprite : "",
+            ...(offsetX !== undefined && { offsetX }),
+            ...(offsetZ !== undefined && { offsetZ }),
+            ...(offsetY !== undefined && { offsetY }),
+            ...(yaw !== undefined && { yaw }),
+            ...(scale !== undefined && { scale }),
+            ...(typeof blocksMove === "boolean" && { blocksMove }),
+            ...(customAttrs ? { customAttrs } : {}),
+          });
+        }
+        setCellDecorations(decorations);
+      } else if (imported.objectPlacements && imported.objectPlacements.length > 0) {
+        // Old format shim
         const decorations: Record<string, import("../DataContext").DecorationPlacement[]> = {};
         for (const op of imported.objectPlacements) {
           const key = `${op.x},${op.z}`;
@@ -293,6 +328,16 @@ export default function DungeonView() {
         setCellDecorations({});
       }
 
+      // restore skybox config (shim: normalise missing/partial faces from older files)
+      type RawSkybox = import("../DataContext").SkyboxConfig;
+      const rawSkybox = importRawFile?.skyboxConfig as RawSkybox | undefined;
+      if (rawSkybox && typeof rawSkybox.faces === "object" && rawSkybox.faces !== null) {
+        const empty = { px: "", nx: "", py: "", ny: "", pz: "", nz: "" };
+        setSkyboxConfig({ faces: { ...empty, ...rawSkybox.faces }, rotationY: rawSkybox.rotationY });
+      } else {
+        setSkyboxConfig(null);
+      }
+
       // restore renderer options (shim: absent/empty in older files → keep current settings)
       const ro = imported.rendererOptions;
       if (ro && Object.keys(ro).length > 0) {
@@ -311,6 +356,7 @@ export default function DungeonView() {
       setCellHeights({});
       setCellPaints({});
       setCellDecorations({});
+      setSkyboxConfig(null);
     }
 
     setGame(g);
@@ -376,7 +422,7 @@ export default function DungeonView() {
     const el = viewportRef.current;
     if (!el || !game) return;
 
-    let renderer: DungeonRenderer;
+    let r: DungeonRenderer;
 
     const atlasOptions: DungeonRendererOptions = atlasConfig
       ? {
@@ -413,7 +459,7 @@ export default function DungeonView() {
       0,
     );
 
-    renderer = createDungeonRenderer(el, game, {
+    r = createDungeonRenderer(el, game, {
       ...atlasOptions,
       ...rendererSettings,
 
@@ -425,7 +471,7 @@ export default function DungeonView() {
           return;
         }
         setHoveredCell(info);
-        hoverHandleRef.current = renderer.highlightCells((cx, cz) =>
+        hoverHandleRef.current = r.highlightCells((cx, cz) =>
           cx === info.cx && cz === info.cz ? "rgba(20, 80, 255, 0.55)" : null,
         );
       },
@@ -439,7 +485,7 @@ export default function DungeonView() {
           setSelectedCell(info);
           // Single-cell highlight via refreshSelectHighlight after state update
           selectHandleRef.current?.remove();
-          selectHandleRef.current = renderer.highlightCells((cx, cz) =>
+          selectHandleRef.current = r.highlightCells((cx, cz) =>
             cx === info.cx && cz === info.cz ? "rgba(255, 230, 20, 0.5)" : null,
           );
           return;
@@ -482,8 +528,8 @@ export default function DungeonView() {
       },
     });
 
-    rendererRef.current = renderer;
-    setRenderer(renderer);
+    rendererRef.current = r;
+    setRenderer(r);
 
     // Restore selection highlight after renderer recreate
     refreshSelectHighlight();
@@ -496,9 +542,19 @@ export default function DungeonView() {
       selectHandleRef.current = null;
       rendererRef.current = null;
       setRenderer(null);
-      renderer.destroy();
+      r.destroy();
     };
   }, [game, atlasConfig, rendererSettings]);
+
+  // Effect 3: apply/remove skybox whenever renderer or skyboxConfig changes
+  useEffect(() => {
+    if (!renderer) return;
+    if (!skyboxConfig) {
+      renderer.setSkybox(null).catch(() => {});
+      return;
+    }
+    renderer.setSkybox({ faces: skyboxConfig.faces, rotationY: skyboxConfig.rotationY }).catch(() => {});
+  }, [renderer, skyboxConfig]);
 
   return <div ref={viewportRef} style={{ position: "absolute", inset: 0 }} />;
 }

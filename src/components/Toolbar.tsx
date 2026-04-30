@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
-import { dungeonMapToJson, dungeonMapFromJson } from "atomic-core";
-import type { BspDungeonOutputs, ObjectPlacement } from "atomic-core";
+import { exportDungeonMap, dungeonMapFromJson } from "atomic-core";
+import type { BspDungeonOutputs } from "atomic-core";
 import { useData } from "../DataContext";
 import AtlasImportModal from "./AtlasImportModal";
 import DungeonSettingsModal from "./DungeonSettingsModal";
@@ -16,36 +16,38 @@ export default function Toolbar({ onOpenMapEditor }: Props) {
   const [showSettings, setShowSettings] = useState(false);
   const [showNewMap, setShowNewMap] = useState(false);
   const [showLights, setShowLights] = useState(false);
-  const { game, generatorOptions, setImportRequest, cellDecorations, rendererSettings } = useData();
+  const { game, generatorOptions, setImportRequest, setImportRawFile, cellDecorations, rendererSettings, skyboxConfig } = useData();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
     if (!game?.dungeon.outputs || !generatorOptions) return;
-    const objectPlacements: ObjectPlacement[] = Object.values(cellDecorations)
+    const entities = Object.values(cellDecorations)
       .flat()
-      .map((d) => {
-        const meta: Record<string, unknown> = {};
-        if (d.sprite) meta.sprite = d.sprite;
-        if (d.blocksMove !== undefined) meta.blocksMove = d.blocksMove;
-        return {
-          x: d.x,
-          z: d.z,
-          type: d.type || "decoration",
-          ...(d.offsetX !== undefined && { offsetX: d.offsetX }),
-          ...(d.offsetZ !== undefined && { offsetZ: d.offsetZ }),
-          ...(d.offsetY !== undefined && { offsetY: d.offsetY }),
-          ...(d.yaw !== undefined && { yaw: d.yaw }),
-          ...(d.scale !== undefined && { scale: d.scale }),
-          ...(Object.keys(meta).length > 0 && { meta }),
-        };
-      });
-    const json = dungeonMapToJson(game.dungeon.outputs as BspDungeonOutputs, {
+      .map((d) => ({
+        kind: "decoration" as const,
+        x: d.x,
+        z: d.z,
+        type: d.type || "decoration",
+        sprite: d.sprite,
+        ...(d.offsetX !== undefined && { offsetX: d.offsetX }),
+        ...(d.offsetZ !== undefined && { offsetZ: d.offsetZ }),
+        ...(d.offsetY !== undefined && { offsetY: d.offsetY }),
+        ...(d.yaw !== undefined && { yaw: d.yaw }),
+        ...(d.scale !== undefined && { scale: d.scale }),
+        ...(d.blocksMove !== undefined && { blocksMove: d.blocksMove }),
+        ...(d.customAttrs ?? {}),
+      }));
+    const mapFile = exportDungeonMap(game.dungeon.outputs as BspDungeonOutputs, {
       generatorOptions,
       rendererOptions: rendererSettings,
       paintMap: game.dungeon.paintMap,
-      ...(objectPlacements.length > 0 && { objectPlacements }),
     });
-    const blob = new Blob([json], { type: "application/json" });
+    const editorFile = {
+      ...mapFile,
+      ...(entities.length > 0 && { entities }),
+      ...(skyboxConfig && { skyboxConfig }),
+    };
+    const blob = new Blob([JSON.stringify(editorFile)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -60,7 +62,10 @@ export default function Toolbar({ onOpenMapEditor }: Props) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const result = dungeonMapFromJson(ev.target?.result as string);
+        const jsonStr = ev.target?.result as string;
+        const rawFile = JSON.parse(jsonStr) as Record<string, unknown>;
+        const result = dungeonMapFromJson(jsonStr);
+        setImportRawFile(rawFile);
         setImportRequest({
           options: result.generatorOptions,
           seq: Date.now(),
