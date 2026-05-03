@@ -14,6 +14,16 @@ type ExtendedOpts = GeneratorOptions & {
   theme?: string
   fillProbability?: number
   iterations?: number
+  birthThreshold?: number
+  survivalThreshold?: number
+  keepOuterWalls?: boolean
+  vaultedCeiling?: boolean
+  vaultMaxSteps?: number
+  noiseFrequency?: number
+  noiseSteps?: number
+  vaultHeightScale?: number
+  distanceToWallWeight?: number
+  noiseWeight?: number
   minLeafSize?: number
   maxLeafSize?: number
   minRoomSize?: number
@@ -34,6 +44,16 @@ export default function NewMapModal({ onClose }: Props) {
   const [theme, setTheme] = useState<string>(rawOpts?.theme ?? '')
   const [fillRatio, setFillRatio] = useState(rawOpts?.fillProbability ?? 0.45)
   const [iterations, setIterations] = useState(rawOpts?.iterations ?? 5)
+  const [birthThreshold, setBirthThreshold] = useState(rawOpts?.birthThreshold ?? 5)
+  const [survivalThreshold, setSurvivalThreshold] = useState(rawOpts?.survivalThreshold ?? 4)
+  const [keepOuterWalls, setKeepOuterWalls] = useState(rawOpts?.keepOuterWalls ?? true)
+  const [vaultedCeiling, setVaultedCeiling] = useState(rawOpts?.vaultedCeiling ?? true)
+  const [vaultMaxSteps, setVaultMaxSteps] = useState(rawOpts?.vaultMaxSteps ?? 3)
+  const [noiseFrequency, setNoiseFrequency] = useState(rawOpts?.noiseFrequency ?? 0.08)
+  const [noiseSteps, setNoiseSteps] = useState(rawOpts?.noiseSteps ?? 2)
+  const [vaultHeightScale, setVaultHeightScale] = useState(rawOpts?.vaultHeightScale ?? 1)
+  const [distanceToWallWeight, setDistanceToWallWeight] = useState(rawOpts?.distanceToWallWeight ?? 1)
+  const [noiseWeight, setNoiseWeight] = useState(rawOpts?.noiseWeight ?? 1)
   const [minLeafSize, setMinLeafSize] = useState(rawOpts?.minLeafSize ?? 8)
   const [maxLeafSize, setMaxLeafSize] = useState(rawOpts?.maxLeafSize ?? 20)
   const [minRoomSize, setMinRoomSize] = useState(rawOpts?.minRoomSize ?? 5)
@@ -58,6 +78,18 @@ export default function NewMapModal({ onClose }: Props) {
       opts.cellular = true
       opts.fillProbability = fillRatio
       opts.iterations = iterations
+      opts.birthThreshold = birthThreshold
+      opts.survivalThreshold = survivalThreshold
+      opts.keepOuterWalls = keepOuterWalls
+      opts.vaultedCeiling = vaultedCeiling
+      if (vaultedCeiling) {
+        opts.vaultMaxSteps = vaultMaxSteps
+        opts.noiseFrequency = noiseFrequency
+        opts.noiseSteps = noiseSteps
+        opts.vaultHeightScale = vaultHeightScale
+        opts.distanceToWallWeight = distanceToWallWeight
+        opts.noiseWeight = noiseWeight
+      }
     } else {
       opts.minRoomSize = minRoomSize
       opts.maxRoomSize = maxRoomSize
@@ -238,6 +270,110 @@ export default function NewMapModal({ onClose }: Props) {
                   style={numInputStyle}
                 />
               </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={labelStyle}>Birth threshold</span>
+                <input
+                  type="number" min={1} max={8} value={birthThreshold}
+                  onChange={e => setBirthThreshold(Math.max(1, Math.min(8, Number(e.target.value))))}
+                  style={numInputStyle}
+                />
+              </div>
+              <div style={{ color: '#506090', fontSize: 11, marginTop: -2 }}>
+                Floor becomes wall if wall-neighbour count &gt;= this (1–8). Default: 5.
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={labelStyle}>Survival threshold</span>
+                <input
+                  type="number" min={1} max={8} value={survivalThreshold}
+                  onChange={e => setSurvivalThreshold(Math.max(1, Math.min(8, Number(e.target.value))))}
+                  style={numInputStyle}
+                />
+              </div>
+              <div style={{ color: '#506090', fontSize: 11, marginTop: -2 }}>
+                Wall survives if wall-neighbour count &gt;= this (1–8). Default: 4.
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={labelStyle}>Keep outer walls</span>
+                <input
+                  type="checkbox" checked={keepOuterWalls}
+                  onChange={e => setKeepOuterWalls(e.target.checked)}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={labelStyle}>Vaulted ceiling</span>
+                <input
+                  type="checkbox" checked={vaultedCeiling}
+                  onChange={e => setVaultedCeiling(e.target.checked)}
+                />
+              </div>
+              {vaultedCeiling && (<>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Max vault steps</span>
+                  <input
+                    type="number" min={1} max={10} value={vaultMaxSteps}
+                    onChange={e => setVaultMaxSteps(Math.max(1, Math.min(10, Number(e.target.value))))}
+                    style={numInputStyle}
+                  />
+                </div>
+                <div style={{ color: '#506090', fontSize: 11, marginTop: -2 }}>
+                  Max ceiling raise at room centers, in steps (1 step = tileSize × 0.5).
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Height scale</span>
+                  <input
+                    type="range" min={0.1} max={64} step={0.1} value={vaultHeightScale}
+                    onChange={e => setVaultHeightScale(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: '#5870d0' }}
+                  />
+                  <span style={{ color: '#e0e8ff', minWidth: 36, textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
+                    {vaultHeightScale.toFixed(1)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Wall dist. weight</span>
+                  <input
+                    type="range" min={0} max={1} step={0.05} value={distanceToWallWeight}
+                    onChange={e => setDistanceToWallWeight(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: '#5870d0' }}
+                  />
+                  <span style={{ color: '#e0e8ff', minWidth: 36, textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
+                    {distanceToWallWeight.toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Noise frequency</span>
+                  <input
+                    type="range" min={0.01} max={0.5} step={0.01} value={noiseFrequency}
+                    onChange={e => setNoiseFrequency(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: '#5870d0' }}
+                  />
+                  <span style={{ color: '#e0e8ff', minWidth: 36, textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
+                    {noiseFrequency.toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ color: '#506090', fontSize: 11, marginTop: -2 }}>
+                  Lower = smoother noise, higher = tighter bumps.
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Noise steps</span>
+                  <input
+                    type="number" min={0} max={8} value={noiseSteps}
+                    onChange={e => setNoiseSteps(Math.max(0, Math.min(8, Number(e.target.value))))}
+                    style={numInputStyle}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Noise weight</span>
+                  <input
+                    type="range" min={0} max={1} step={0.05} value={noiseWeight}
+                    onChange={e => setNoiseWeight(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: '#5870d0' }}
+                  />
+                  <span style={{ color: '#e0e8ff', minWidth: 36, textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
+                    {noiseWeight.toFixed(2)}
+                  </span>
+                </div>
+              </>)}
             </div>
           </div>
         ) : (
