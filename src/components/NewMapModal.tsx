@@ -10,9 +10,9 @@ interface Props {
 }
 
 type ExtendedOpts = GeneratorOptions & {
-  generator?: string
+  cellular?: boolean
   theme?: string
-  fillRatio?: number
+  fillProbability?: number
   iterations?: number
   minLeafSize?: number
   maxLeafSize?: number
@@ -29,10 +29,10 @@ export default function NewMapModal({ onClose }: Props) {
   const [width, setWidth] = useState(rawOpts?.width ?? 40)
   const [height, setHeight] = useState(rawOpts?.height ?? 40)
   const [generator, setGenerator] = useState<'bsp' | 'cellular'>(
-    rawOpts?.generator === 'cellular' ? 'cellular' : 'bsp'
+    rawOpts?.cellular === true ? 'cellular' : 'bsp'
   )
   const [theme, setTheme] = useState<string>(rawOpts?.theme ?? '')
-  const [fillRatio, setFillRatio] = useState(rawOpts?.fillRatio ?? 0.45)
+  const [fillRatio, setFillRatio] = useState(rawOpts?.fillProbability ?? 0.45)
   const [iterations, setIterations] = useState(rawOpts?.iterations ?? 5)
   const [minLeafSize, setMinLeafSize] = useState(rawOpts?.minLeafSize ?? 8)
   const [maxLeafSize, setMaxLeafSize] = useState(rawOpts?.maxLeafSize ?? 20)
@@ -55,8 +55,8 @@ export default function NewMapModal({ onClose }: Props) {
     const opts: Record<string, unknown> = { width, height, seed }
 
     if (generator === 'cellular') {
-      opts.generator = 'cellular'
-      opts.fillRatio = fillRatio
+      opts.cellular = true
+      opts.fillProbability = fillRatio
       opts.iterations = iterations
     } else {
       opts.minRoomSize = minRoomSize
