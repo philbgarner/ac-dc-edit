@@ -401,7 +401,7 @@ export default function NewMapModal({ onClose }: Props) {
                 </div>
               </>)}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={labelStyle}>Vaulted floor</span>
+                <span style={labelStyle}>Pitted floor</span>
                 <input
                   type="checkbox" checked={vaultedFloor}
                   onChange={e => setVaultedFloor(e.target.checked)}
