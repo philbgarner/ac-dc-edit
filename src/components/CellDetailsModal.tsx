@@ -8,7 +8,7 @@ import ColliderFlagsEditor from "./ColliderFlagsEditor";
 import DecorationEditor from "./DecorationEditor";
 import { useData } from "../DataContext";
 import type { DecorationPlacement } from "../DataContext";
-import { createEntity } from "atomic-core";
+import { createEntity, setSkyPanelCount, setCeilingPanelCount } from "atomic-core";
 import type { SpriteMap } from "atomic-core";
 import styles from "./CellDetailsModal.module.css";
 
@@ -320,6 +320,23 @@ export default function CellDetailsModal({ onClose }: Props) {
   const floorSkirtLayers = skirtTarget.floor ?? [];
   const ceilSkirtLayers = skirtTarget.ceil ?? [];
 
+  const texSkyPanels = (outputs?.textures as unknown as { skyPanelCount?: { image: { data: Uint8Array } } })?.skyPanelCount;
+  const texCeilPanels = (outputs?.textures as unknown as { ceilingPanelCount?: { image: { data: Uint8Array } } })?.ceilingPanelCount;
+  const skyPanelCount = texSkyPanels ? (texSkyPanels.image.data[cz * width + cx] ?? 0) : 0;
+  const ceilPanelCount = texCeilPanels ? (texCeilPanels.image.data[cz * width + cx] ?? 0) : 0;
+
+  function writeSkyPanelCount(count: number) {
+    if (!outputs) return;
+    setSkyPanelCount(outputs as Parameters<typeof setSkyPanelCount>[0], cx, cz, count);
+    renderer?.rebuild();
+  }
+
+  function writeCeilPanelCount(count: number) {
+    if (!outputs) return;
+    setCeilingPanelCount(outputs as Parameters<typeof setCeilingPanelCount>[0], cx, cz, count);
+    renderer?.rebuild();
+  }
+
   const texCollider = outputs?.textures.colliderFlags as
     | { image: { data: Uint8Array } }
     | undefined;
@@ -534,6 +551,32 @@ export default function CellDetailsModal({ onClose }: Props) {
                 stored locally — generate dungeon to apply
               </span>
             )}
+          </AccordionSection>
+        )}
+
+        {outputs && (texSkyPanels || texCeilPanels) && (
+          <AccordionSection title={`Panels (sky: ${skyPanelCount}, ceil: ${ceilPanelCount})`}>
+            <div className={styles.sliderRow}>
+              <span className={styles.sliderLabel}>Sky panels</span>
+              <input
+                type="range" min={0} max={4} step={1} value={skyPanelCount}
+                onChange={e => writeSkyPanelCount(Number(e.target.value))}
+                className={styles.slider}
+              />
+              <span className={styles.sliderValue}>{skyPanelCount}</span>
+            </div>
+            <div className={styles.sliderRow}>
+              <span className={styles.sliderLabel}>Ceiling panels</span>
+              <input
+                type="range" min={0} max={4} step={1} value={ceilPanelCount}
+                onChange={e => writeCeilPanelCount(Number(e.target.value))}
+                className={styles.slider}
+              />
+              <span className={styles.sliderValue}>{ceilPanelCount}</span>
+            </div>
+            <span className={styles.mutedNoteSm}>
+              Sky panels appear above open-sky wall tops. Ceiling panels hang below the ceiling. Use Surface Layers to set per-row tiles.
+            </span>
           </AccordionSection>
         )}
 
