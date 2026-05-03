@@ -93,6 +93,7 @@ export interface RendererSettings {
   eyeHeightFactor: number;
   ambientOcclusion: number;
   openSkyLighting: number;
+  snapCameraToFloor: boolean;
   surfaceLighting: {
     floor: number;
     ceiling: number;
@@ -113,6 +114,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   eyeHeightFactor: 0.66,
   ambientOcclusion: 0.75,
   openSkyLighting: 0,
+  snapCameraToFloor: false,
   surfaceLighting: { floor: 0.85, ceiling: 0.95, wallMin: 0.9, wallMax: 1.1 },
 };
 

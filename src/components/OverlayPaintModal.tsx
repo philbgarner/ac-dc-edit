@@ -17,7 +17,7 @@ const EXT_FACE_LABEL: Record<ExtFace, string> = {
   floorSkirtBase: 'Floor Skirt Rows',
 }
 const EXT_FACE_HINT: Record<ExtFace, string> = {
-  skyPanels: 'Per-row tile above wall top on open-sky cells. Row 0 = closest to wall top.',
+  skyPanels: 'Per-row tile above ceiling height on faces that border an open-sky neighbour. Row 0 = closest to ceiling.',
   ceilingPanels: 'Per-row tile hanging below the ceiling. Row 0 = closest to ceiling.',
   ceilSkirtBase: 'Per-row base tile for ceiling wall-adjacent skirts. Row 0 = closest to wall top.',
   floorSkirtBase: 'Per-row base tile for floor wall-adjacent skirts. Row 0 = closest to wall bottom.',

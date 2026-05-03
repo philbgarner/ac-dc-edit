@@ -546,7 +546,13 @@ export default function DungeonView() {
     };
   }, [game, atlasConfig, rendererSettings]);
 
-  // Effect 3: apply/remove skybox whenever renderer or skyboxConfig changes
+  // Effect 3: sync snapCameraToFloor at runtime — no renderer recreation needed
+  useEffect(() => {
+    if (!renderer) return;
+    renderer.setSnapCameraToFloor(rendererSettings.snapCameraToFloor);
+  }, [renderer, rendererSettings.snapCameraToFloor]);
+
+  // Effect 4: apply/remove skybox whenever renderer or skyboxConfig changes
   useEffect(() => {
     if (!renderer) return;
     if (!skyboxConfig) {

@@ -274,6 +274,15 @@ export default function DungeonSettingsModal({ onClose }: Props) {
         <SliderRow label="FOV (degrees)" value={local.fov} min={30} max={120} step={1} onChange={(v) => set("fov", v)} />
         <SliderRow label="Eye height factor" value={local.eyeHeightFactor} min={0} max={1} step={0.01} format={(v) => v.toFixed(2)} onChange={(v) => set("eyeHeightFactor", v)} />
         <SliderRow label="Lerp factor" value={local.lerpFactor} min={0} max={1} step={0.01} format={(v) => v.toFixed(2)} onChange={(v) => set("lerpFactor", v)} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ color: "#7080b0", minWidth: 160 }}>Snap to floor height</span>
+          <input
+            type="checkbox"
+            checked={local.snapCameraToFloor}
+            onChange={(e) => set("snapCameraToFloor", e.target.checked)}
+            style={{ accentColor: "#5870d0", width: 14, height: 14, cursor: "pointer" }}
+          />
+        </div>
       </Section>
 
       <Section title="Fog">
