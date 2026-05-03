@@ -162,7 +162,7 @@ interface DataContextValue {
    * Per-cell height offset overrides, keyed by "cx,cz".
    * Stores R8 byte values matching DungeonOutputs texture encoding:
    * floor — 128 = neutral, 129+ = raised, 127– = lowered, 0 = pit
-   * ceil  — 128 = neutral, 127 = raised, 129+ = lowered (inverted)
+   * ceil  — 128 = neutral, 1–127 = raised, 129+ = lowered (inverted), 0 = open sky
    * Used as a fallback store when textures are absent; textures are the authoritative source.
    */
   cellHeights: Record<string, { floor: number; ceil: number }>;

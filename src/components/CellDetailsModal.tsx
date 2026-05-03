@@ -176,6 +176,8 @@ export default function CellDetailsModal({ onClose }: Props) {
   } = useData();
   const [paintOpen, setPaintOpen] = useState(false);
   const [skirtOpen, setSkirtOpen] = useState(false);
+  const [panelTileOpen, setPanelTileOpen] = useState(false);
+  const [, forceUpdate] = useState(0);
 
   if (!selectedCell) return null;
 
@@ -298,7 +300,7 @@ export default function CellDetailsModal({ onClose }: Props) {
 
   const floorIsPit = floorR8 === 0;
   const floorSteps = floorIsPit ? 0 : floorR8 - OFFSET_NEUTRAL;
-  const ceilIsSky = ceilR8 === 127;
+  const ceilIsSky = ceilR8 === 0;
   const ceilSteps = ceilIsSky ? 0 : OFFSET_NEUTRAL - ceilR8;
 
   function writeFloor(r8: number) {
@@ -328,12 +330,14 @@ export default function CellDetailsModal({ onClose }: Props) {
   function writeSkyPanelCount(count: number) {
     if (!outputs) return;
     setSkyPanelCount(outputs as Parameters<typeof setSkyPanelCount>[0], cx, cz, count);
+    forceUpdate(n => n + 1);
     renderer?.rebuild();
   }
 
   function writeCeilPanelCount(count: number) {
     if (!outputs) return;
     setCeilingPanelCount(outputs as Parameters<typeof setCeilingPanelCount>[0], cx, cz, count);
+    forceUpdate(n => n + 1);
     renderer?.rebuild();
   }
 
@@ -544,7 +548,7 @@ export default function CellDetailsModal({ onClose }: Props) {
               steps={ceilSteps}
               isSky={ceilIsSky}
               onChange={(s) => writeCeil(OFFSET_NEUTRAL - s)}
-              onSkyToggle={() => writeCeil(ceilIsSky ? OFFSET_NEUTRAL : 127)}
+              onSkyToggle={() => writeCeil(ceilIsSky ? OFFSET_NEUTRAL : 0)}
             />
             {!texFloor && !texCeil && (
               <span className={styles.mutedNoteSm}>
@@ -574,9 +578,16 @@ export default function CellDetailsModal({ onClose }: Props) {
               />
               <span className={styles.sliderValue}>{ceilPanelCount}</span>
             </div>
-            <span className={styles.mutedNoteSm}>
-              Sky panels appear above open-sky wall tops. Ceiling panels hang below the ceiling. Use Surface Layers to set per-row tiles.
-            </span>
+            <div className={styles.rowCenter} style={{ marginTop: 4 }}>
+              <span className={styles.labelFlex}>Per-row tile overrides</span>
+              <button
+                onClick={() => setPanelTileOpen(true)}
+                title="Edit per-row tiles for sky and ceiling panels"
+                className={styles.ellipsisBtn}
+              >
+                …
+              </button>
+            </div>
           </AccordionSection>
         )}
 
@@ -673,6 +684,15 @@ export default function CellDetailsModal({ onClose }: Props) {
           cx={cx}
           cz={cz}
           onClose={() => setPaintOpen(false)}
+        />
+      )}
+      {panelTileOpen && (
+        <OverlayPaintModal
+          cx={cx}
+          cz={cz}
+          initialShowExt
+          initialExtFace="skyPanels"
+          onClose={() => setPanelTileOpen(false)}
         />
       )}
       {skirtOpen && (

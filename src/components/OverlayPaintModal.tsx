@@ -100,9 +100,13 @@ interface Props {
   /** When provided, paint is applied to all these cells instead of just cx/cz. */
   cells?: CellInfo[]
   onClose: () => void
+  /** Open the per-row overrides panel immediately. */
+  initialShowExt?: boolean
+  /** Which per-row tab to activate on open. */
+  initialExtFace?: ExtFace
 }
 
-export default function OverlayPaintModal({ cx, cz, cells, onClose }: Props) {
+export default function OverlayPaintModal({ cx, cz, cells, onClose, initialShowExt, initialExtFace }: Props) {
   const { game, atlasConfig, packedAtlasUrl, cellPaints, setCellPaints } = useData()
   const key = `${cx},${cz}`
   const existing = cellPaints[key] ?? {}
@@ -116,7 +120,7 @@ export default function OverlayPaintModal({ cx, cz, cells, onClose }: Props) {
   const [picking, setPicking] = useState<string | null>(null)
 
   // Extended per-row tab state
-  const [extFace, setExtFace] = useState<ExtFace>('skyPanels')
+  const [extFace, setExtFace] = useState<ExtFace>(initialExtFace ?? 'skyPanels')
   const [extRows, setExtRows] = useState<Record<ExtFace, (string | null)[]>>({
     skyPanels: (existing as SurfacePaintTarget).skyPanels ?? [],
     ceilingPanels: (existing as SurfacePaintTarget).ceilingPanels ?? [],
@@ -125,7 +129,7 @@ export default function OverlayPaintModal({ cx, cz, cells, onClose }: Props) {
   })
   const [extPicking, setExtPicking] = useState<string | null>(null)
   const [showExt, setShowExt] = useState(
-    EXT_FACES.some(f => (existing as SurfacePaintTarget)[f]?.some(v => v != null))
+    initialShowExt ?? EXT_FACES.some(f => (existing as SurfacePaintTarget)[f]?.some(v => v != null))
   )
 
   const spriteNames = atlasConfig?.spriteNames ?? []

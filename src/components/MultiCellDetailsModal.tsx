@@ -365,7 +365,7 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
               onSkyToggle={() => {
                 const next = !ceilIsSky;
                 setCeilIsSky(next);
-                writeAllCeil(next ? 127 : OFFSET_NEUTRAL);
+                writeAllCeil(next ? 0 : OFFSET_NEUTRAL);
               }}
             />
           </AccordionSection>
