@@ -24,6 +24,14 @@ type ExtendedOpts = GeneratorOptions & {
   vaultHeightScale?: number
   distanceToWallWeight?: number
   noiseWeight?: number
+  vaultedFloor?: boolean
+  floorSubSeeds?: number
+  floorMaxSteps?: number
+  floorNoiseFrequency?: number
+  floorNoiseSteps?: number
+  floorHeightScale?: number
+  floorDistanceToEdgeWeight?: number
+  floorNoiseWeight?: number
   minLeafSize?: number
   maxLeafSize?: number
   minRoomSize?: number
@@ -54,6 +62,14 @@ export default function NewMapModal({ onClose }: Props) {
   const [vaultHeightScale, setVaultHeightScale] = useState(rawOpts?.vaultHeightScale ?? 1)
   const [distanceToWallWeight, setDistanceToWallWeight] = useState(rawOpts?.distanceToWallWeight ?? 1)
   const [noiseWeight, setNoiseWeight] = useState(rawOpts?.noiseWeight ?? 1)
+  const [vaultedFloor, setVaultedFloor] = useState(rawOpts?.vaultedFloor ?? false)
+  const [floorSubSeeds, setFloorSubSeeds] = useState(rawOpts?.floorSubSeeds ?? 2)
+  const [floorMaxSteps, setFloorMaxSteps] = useState(rawOpts?.floorMaxSteps ?? 3)
+  const [floorNoiseFrequency, setFloorNoiseFrequency] = useState(rawOpts?.floorNoiseFrequency ?? 0.08)
+  const [floorNoiseSteps, setFloorNoiseSteps] = useState(rawOpts?.floorNoiseSteps ?? 2)
+  const [floorHeightScale, setFloorHeightScale] = useState(rawOpts?.floorHeightScale ?? 1)
+  const [floorDistanceToEdgeWeight, setFloorDistanceToEdgeWeight] = useState(rawOpts?.floorDistanceToEdgeWeight ?? 1)
+  const [floorNoiseWeight, setFloorNoiseWeight] = useState(rawOpts?.floorNoiseWeight ?? 1)
   const [minLeafSize, setMinLeafSize] = useState(rawOpts?.minLeafSize ?? 8)
   const [maxLeafSize, setMaxLeafSize] = useState(rawOpts?.maxLeafSize ?? 20)
   const [minRoomSize, setMinRoomSize] = useState(rawOpts?.minRoomSize ?? 5)
@@ -89,6 +105,16 @@ export default function NewMapModal({ onClose }: Props) {
         opts.vaultHeightScale = vaultHeightScale
         opts.distanceToWallWeight = distanceToWallWeight
         opts.noiseWeight = noiseWeight
+      }
+      opts.vaultedFloor = vaultedFloor
+      if (vaultedFloor) {
+        opts.floorSubSeeds = floorSubSeeds
+        opts.floorMaxSteps = floorMaxSteps
+        opts.floorNoiseFrequency = floorNoiseFrequency
+        opts.floorNoiseSteps = floorNoiseSteps
+        opts.floorHeightScale = floorHeightScale
+        opts.floorDistanceToEdgeWeight = floorDistanceToEdgeWeight
+        opts.floorNoiseWeight = floorNoiseWeight
       }
     } else {
       opts.minRoomSize = minRoomSize
@@ -332,7 +358,7 @@ export default function NewMapModal({ onClose }: Props) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={labelStyle}>Wall dist. weight</span>
                   <input
-                    type="range" min={0} max={1} step={0.05} value={distanceToWallWeight}
+                    type="range" min={0} max={3} step={0.05} value={distanceToWallWeight}
                     onChange={e => setDistanceToWallWeight(Number(e.target.value))}
                     style={{ flex: 1, accentColor: '#5870d0' }}
                   />
@@ -365,12 +391,98 @@ export default function NewMapModal({ onClose }: Props) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={labelStyle}>Noise weight</span>
                   <input
-                    type="range" min={0} max={1} step={0.05} value={noiseWeight}
+                    type="range" min={0} max={3} step={0.05} value={noiseWeight}
                     onChange={e => setNoiseWeight(Number(e.target.value))}
                     style={{ flex: 1, accentColor: '#5870d0' }}
                   />
                   <span style={{ color: '#e0e8ff', minWidth: 36, textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
                     {noiseWeight.toFixed(2)}
+                  </span>
+                </div>
+              </>)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={labelStyle}>Vaulted floor</span>
+                <input
+                  type="checkbox" checked={vaultedFloor}
+                  onChange={e => setVaultedFloor(e.target.checked)}
+                />
+              </div>
+              {vaultedFloor && (<>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Sub-seeds</span>
+                  <input
+                    type="number" min={1} max={16} value={floorSubSeeds}
+                    onChange={e => setFloorSubSeeds(Math.max(1, Math.min(16, Number(e.target.value))))}
+                    style={numInputStyle}
+                  />
+                </div>
+                <div style={{ color: '#506090', fontSize: 11, marginTop: -2 }}>
+                  Sub-region seeds per room — more seeds create more distinct depressions.
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Max floor steps</span>
+                  <input
+                    type="number" min={1} max={10} value={floorMaxSteps}
+                    onChange={e => setFloorMaxSteps(Math.max(1, Math.min(10, Number(e.target.value))))}
+                    style={numInputStyle}
+                  />
+                </div>
+                <div style={{ color: '#506090', fontSize: 11, marginTop: -2 }}>
+                  Max floor depression at sub-region centers, in steps (1 step = tileSize × 0.5).
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Height scale</span>
+                  <input
+                    type="range" min={0.1} max={64} step={0.1} value={floorHeightScale}
+                    onChange={e => setFloorHeightScale(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: '#5870d0' }}
+                  />
+                  <span style={{ color: '#e0e8ff', minWidth: 36, textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
+                    {floorHeightScale.toFixed(1)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Edge dist. weight</span>
+                  <input
+                    type="range" min={0} max={3} step={0.05} value={floorDistanceToEdgeWeight}
+                    onChange={e => setFloorDistanceToEdgeWeight(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: '#5870d0' }}
+                  />
+                  <span style={{ color: '#e0e8ff', minWidth: 36, textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
+                    {floorDistanceToEdgeWeight.toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Noise frequency</span>
+                  <input
+                    type="range" min={0.01} max={0.5} step={0.01} value={floorNoiseFrequency}
+                    onChange={e => setFloorNoiseFrequency(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: '#5870d0' }}
+                  />
+                  <span style={{ color: '#e0e8ff', minWidth: 36, textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
+                    {floorNoiseFrequency.toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ color: '#506090', fontSize: 11, marginTop: -2 }}>
+                  Lower = smoother noise, higher = tighter bumps.
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Noise steps</span>
+                  <input
+                    type="number" min={0} max={8} value={floorNoiseSteps}
+                    onChange={e => setFloorNoiseSteps(Math.max(0, Math.min(8, Number(e.target.value))))}
+                    style={numInputStyle}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>Noise weight</span>
+                  <input
+                    type="range" min={0} max={3} step={0.05} value={floorNoiseWeight}
+                    onChange={e => setFloorNoiseWeight(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: '#5870d0' }}
+                  />
+                  <span style={{ color: '#e0e8ff', minWidth: 36, textAlign: 'right', fontFamily: 'monospace', fontSize: 12 }}>
+                    {floorNoiseWeight.toFixed(2)}
                   </span>
                 </div>
               </>)}
