@@ -5,6 +5,7 @@ import OverlayPaintModal from "./OverlayPaintModal";
 import SkirtPaintModal from "./SkirtPaintModal";
 import ColliderFlagsEditor from "./ColliderFlagsEditor";
 import { useData } from "../DataContext";
+import { setSkyPanelCount, setCeilingPanelCount } from "atomic-core";
 import styles from "./CellDetailsModal.module.css";
 
 const OFFSET_NEUTRAL = 128;
@@ -128,6 +129,8 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
   const [ceilIsSky, setCeilIsSky] = useState(false);
   const [paintOpen, setPaintOpen] = useState(false);
   const [skirtOpen, setSkirtOpen] = useState(false);
+  const [panelTileOpen, setPanelTileOpen] = useState(false);
+  const [, forceUpdate] = useState(0);
 
   if (selectedCells.length === 0) return null;
 
@@ -229,6 +232,27 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
     }
     setCellHeights(next);
     renderer?.rebuild();
+  }
+
+  const texSkyPanels = (outputs?.textures as unknown as { skyPanelCount?: { image: { data: Uint8Array } } })?.skyPanelCount;
+  const texCeilPanels = (outputs?.textures as unknown as { ceilingPanelCount?: { image: { data: Uint8Array } } })?.ceilingPanelCount;
+  const skyPanelCount = texSkyPanels ? (texSkyPanels.image.data[firstCell.cz * width + firstCell.cx] ?? 0) : 0;
+  const ceilPanelCount = texCeilPanels ? (texCeilPanels.image.data[firstCell.cz * width + firstCell.cx] ?? 0) : 0;
+
+  function writeAllSkyPanelCount(count: number) {
+    if (!outputs) return;
+    for (const { cx, cz } of selectedCells)
+      setSkyPanelCount(outputs as Parameters<typeof setSkyPanelCount>[0], cx, cz, count);
+    renderer?.rebuild();
+    forceUpdate(n => n + 1);
+  }
+
+  function writeAllCeilPanelCount(count: number) {
+    if (!outputs) return;
+    for (const { cx, cz } of selectedCells)
+      setCeilingPanelCount(outputs as Parameters<typeof setCeilingPanelCount>[0], cx, cz, count);
+    renderer?.rebuild();
+    forceUpdate(n => n + 1);
   }
 
   const minX = Math.min(...selectedCells.map((c) => c.cx));
@@ -371,6 +395,39 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
           </AccordionSection>
         )}
 
+        {outputs && (texSkyPanels || texCeilPanels) && (
+          <AccordionSection title={`Panels (sky: ${skyPanelCount}, ceil: ${ceilPanelCount})`}>
+            <div className={styles.sliderRow}>
+              <span className={styles.sliderLabel}>Sky panels</span>
+              <input
+                type="range" min={0} max={4} step={1} value={skyPanelCount}
+                onChange={e => writeAllSkyPanelCount(Number(e.target.value))}
+                className={styles.slider}
+              />
+              <span className={styles.sliderValue}>{skyPanelCount}</span>
+            </div>
+            <div className={styles.sliderRow}>
+              <span className={styles.sliderLabel}>Ceiling panels</span>
+              <input
+                type="range" min={0} max={4} step={1} value={ceilPanelCount}
+                onChange={e => writeAllCeilPanelCount(Number(e.target.value))}
+                className={styles.slider}
+              />
+              <span className={styles.sliderValue}>{ceilPanelCount}</span>
+            </div>
+            <div className={styles.rowCenter} style={{ marginTop: 4 }}>
+              <span className={styles.labelFlex}>Per-row tile overrides</span>
+              <button
+                onClick={() => setPanelTileOpen(true)}
+                title="Edit per-row tiles for sky and ceiling panels"
+                className={styles.ellipsisBtn}
+              >
+                …
+              </button>
+            </div>
+          </AccordionSection>
+        )}
+
         {outputs && (
           <AccordionSection title="Surface Layers">
             <div className={styles.rowCenter}>
@@ -436,6 +493,16 @@ export default function MultiCellDetailsModal({ onClose }: Props) {
           cz={firstCell.cz}
           cells={selectedCells}
           onClose={() => setSkirtOpen(false)}
+        />
+      )}
+      {panelTileOpen && firstCell && (
+        <OverlayPaintModal
+          cx={firstCell.cx}
+          cz={firstCell.cz}
+          cells={selectedCells}
+          initialShowExt
+          initialExtFace="skyPanels"
+          onClose={() => setPanelTileOpen(false)}
         />
       )}
     </>
